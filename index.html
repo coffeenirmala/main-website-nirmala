@@ -969,7 +969,7 @@ const res = await fetch('/api/subscribe', {
           },
           body: JSON.stringify({ email: email })
         });
-      if(res.ok) {
+      if(res.ok || res.status === 200 || res.status === 204) {
         onPopupSuccess();
       } else {
         btn.disabled = false;
