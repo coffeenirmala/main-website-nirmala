@@ -25,7 +25,7 @@ exports.handler = async function(event) {
       },
       body: JSON.stringify({
         email:         email,
-        listIds:       [7],
+        listIds:       [2],
         updateEnabled: true,
       }),
     });
