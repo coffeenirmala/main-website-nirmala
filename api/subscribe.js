@@ -1,10 +1,8 @@
 export default async function handler(req, res) {
-  // Allow CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -14,13 +12,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Safely parse body (Vercel sudah auto-parse JSON, tapi jaga-jaga)
-    let body = req.body;
-    if (typeof body === 'string') {
-      body = JSON.parse(body);
-    }
+    let email;
 
-    const { email } = body;
+    // Handle body parsing — Vercel kadang kirim body sebagai string
+    if (typeof req.body === 'string') {
+      const parsed = JSON.parse(req.body);
+      email = parsed.email;
+    } else if (typeof req.body === 'object' && req.body !== null) {
+      email = req.body.email;
+    } else {
+      // Fallback: baca raw body manual
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const raw = Buffer.concat(chunks).toString();
+      const parsed = JSON.parse(raw);
+      email = parsed.email;
+    }
 
     if (!email) {
       return res.status(400).json({ error: 'Email required' });
@@ -35,8 +44,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         email: email,
-        listIds: [7],          // ✅ List #7 = "subscriber web" sesuai Brevo automation
-        updateEnabled: true,   // Update kalau email sudah ada
+        listIds: [7],
+        updateEnabled: true,
       }),
     });
 
@@ -45,12 +54,13 @@ export default async function handler(req, res) {
     if (response.ok || response.status === 204) {
       return res.status(200).json({ success: true });
     } else {
-      console.error('Brevo API error:', data);
       return res.status(500).json({ error: 'Brevo error', detail: data });
     }
 
   } catch (err) {
-    console.error('Handler error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ 
+      error: 'Internal server error', 
+      detail: err.message 
+    });
   }
 }
