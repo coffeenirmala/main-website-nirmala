@@ -942,34 +942,25 @@
     setTimeout(openPopup, 3000);
   }
 
-  document.getElementById('brevoForm').addEventListener('submit', async function(e) {
+const brevoFormEl = window.document.getElementById('brevoForm');
+if (brevoFormEl) {
+  brevoFormEl.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const emailVal = document.getElementById('popupEmail').value.trim();
+    const emailVal = window.document.getElementById('popupEmail').value.trim();
     if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-      document.getElementById('popupEmail').focus();
+      window.document.getElementById('popupEmail').focus();
       return;
     }
-    const btn = document.getElementById('popupSubmit');
+    const btn = window.document.getElementById('popupSubmit');
     btn.disabled = true;
     btn.textContent = '...';
-
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-
-    if(isLocal) {
-      // Running locally — skip API, just show success
-      onPopupSuccess();
-      return;
-    }
-
     try {
-const res = await fetch('/api/subscribe', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email: email })
-        });
-      if(res.ok || res.status === 200 || res.status === 204) {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailVal })
+      });
+      if (res.ok || res.status === 200 || res.status === 204) {
         onPopupSuccess();
       } else {
         btn.disabled = false;
@@ -982,6 +973,7 @@ const res = await fetch('/api/subscribe', {
       alert('Terjadi kesalahan. Coba lagi.');
     }
   });
+}
 
   function onPopupSuccess() {
     localStorage.setItem('nirmala_popup_done', Date.now().toString());
