@@ -942,53 +942,39 @@
     setTimeout(openPopup, 3000);
   }
 
-  document.getElementById('brevoForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const emailVal = document.getElementById('popupEmail').value.trim();
-    if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-      document.getElementById('popupEmail').focus();
-      return;
-    }
-    const btn = document.getElementById('popupSubmit');
-    btn.disabled = true;
-    btn.textContent = '...';
-
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-
-    if(isLocal) {
-      // Running locally — skip API, just show success
-      onPopupSuccess();
-      return;
-    }
-
-    try {
-      const res = await fetch('/.netlify/functions/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailVal }),
-      });
-      if(res.ok) {
-        onPopupSuccess();
-      } else {
-        btn.disabled = false;
-        btn.textContent = 'Gabung';
-        alert('Terjadi kesalahan. Coba lagi.');
-      }
-    } catch(err) {
+document.getElementById('brevoForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const emailVal = document.getElementById('popupEmail').value.trim();
+  if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    document.getElementById('popupEmail').focus();
+    return;
+  }
+  const btn = document.getElementById('popupSubmit');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailVal }),
+    });
+    if(res.ok) {
+      localStorage.setItem('nirmala_popup_done', Date.now().toString());
+      document.getElementById('popupForm').style.display = 'none';
+      document.getElementById('popupSuccess').style.display = 'block';
+      setTimeout(closePopup, 3000);
+    } else {
       btn.disabled = false;
       btn.textContent = 'Gabung';
       alert('Terjadi kesalahan. Coba lagi.');
     }
-  });
-
-  function onPopupSuccess() {
-    localStorage.setItem('nirmala_popup_done', Date.now().toString());
-    document.getElementById('popupForm').style.display = 'none';
-    document.getElementById('popupSuccess').style.display = 'block';
-    setTimeout(closePopup, 3000);
+  } catch(err) {
+    btn.disabled = false;
+    btn.textContent = 'Gabung';
+    alert('Terjadi kesalahan. Coba lagi.');
   }
-
-  function submitPopup() {}
+});
+function submitPopup() {}
 </script>
 </body>
 </html>/div>
