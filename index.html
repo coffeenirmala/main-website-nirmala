@@ -990,7 +990,30 @@ const res = await fetch('/api/subscribe', {
     setTimeout(closePopup, 3000);
   }
 
-  function submitPopup() {}
+  function submitPopup() {
+  const emailVal = document.getElementById('popupEmail').value.trim();
+  const btn = document.querySelector('#popupForm button');
+  if (!emailVal) return;
+  btn.disabled = true;
+  btn.textContent = 'Mengirim...';
+  fetch('/api/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: emailVal })
+  }).then(res => {
+    if (res.ok || res.status === 200 || res.status === 204) {
+      onPopupSuccess();
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Gabung';
+      alert('Terjadi kesalahan. Coba lagi.');
+    }
+  }).catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Gabung';
+    alert('Terjadi kesalahan. Coba lagi.');
+  });
+}
 </script>
 </body>
 </html>
