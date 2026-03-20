@@ -1208,23 +1208,62 @@ function submitPopup() {}
   if(!alreadySubmitted) {
     setTimeout(openPopup, 3000);
   }
+async function submitPopup() {
+  const emailInput = document.getElementById('popupEmail');
+  const emailVal = emailInput.value.trim();
+  const formDiv = document.getElementById('popupForm');
+  const successDiv = document.getElementById('popupSuccess');
+  const submitBtn = document.querySelector('#popupForm button');
 
-  function submitPopup() {
-    const emailVal = document.getElementById('popupEmail').value.trim();
-    if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-      document.getElementById('popupEmail').focus();
-      return;
-    }
-    // Mark as submitted so popup won't show again for 7 days
-    localStorage.setItem('nirmala_popup_done', Date.now().toString());
-    // Show success, then close and open Tally
-    document.getElementById('popupForm').style.display = 'none';
-    document.getElementById('popupSuccess').style.display = 'block';
-    setTimeout(() => {
-      closePopup();
-      window.open('https://tally.so/r/3ljZPo?email=' + encodeURIComponent(emailVal), '_blank');
-    }, 3000);
+  // 1. Validasi format email
+  if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+    emailInput.focus();
+    return;
   }
+
+  // 2. UI State: Loading (biar user tahu proses sedang jalan)
+  const originalBtnText = submitBtn.innerText;
+  submitBtn.innerText = "Mengirim...";
+  submitBtn.disabled = true;
+
+  try {
+    // 3. Panggil Serverless Function Vercel
+    const response = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailVal })
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      // 4. Jika sukses: Simpan status di localStorage agar popup tidak muncul lagi
+      localStorage.setItem('nirmala_popup_done', Date.now().toString());
+      
+      // 5. Switch tampilan ke pesan sukses
+      formDiv.style.display = 'none';
+      successDiv.style.display = 'block';
+
+      // 6. Tutup popup otomatis setelah 3 detik
+      setTimeout(() => {
+        closePopup();
+      }, 3000);
+
+    } else {
+      // Jika API Brevo menolak (misal: email sudah terdaftar)
+      alert("Oops: " + (result.error || "Gagal mendaftarkan email."));
+      submitBtn.innerText = originalBtnText;
+      submitBtn.disabled = false;
+    }
+
+  } catch (error) {
+    // Jika ada masalah koneksi/network
+    console.error("Error submit:", error);
+    alert("Koneksi bermasalah. Silakan coba lagi nanti.");
+    submitBtn.innerText = originalBtnText;
+    submitBtn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>
