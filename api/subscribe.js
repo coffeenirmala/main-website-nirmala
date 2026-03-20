@@ -14,14 +14,12 @@ export default async function handler(req, res) {
   try {
     let email;
 
-    // Handle body parsing — Vercel kadang kirim body sebagai string
     if (typeof req.body === 'string') {
       const parsed = JSON.parse(req.body);
       email = parsed.email;
     } else if (typeof req.body === 'object' && req.body !== null) {
       email = req.body.email;
     } else {
-      // Fallback: baca raw body manual
       const chunks = [];
       for await (const chunk of req) {
         chunks.push(chunk);
@@ -47,7 +45,7 @@ export default async function handler(req, res) {
         listIds: [7],
         updateEnabled: true,
       }),
-});
+    });
 
     if (response.ok || response.status === 204 || response.status === 201) {
       return res.status(200).json({ success: true });
@@ -58,5 +56,11 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
     return res.status(500).json({ error: 'Brevo error', detail: data });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Internal server error',
+      detail: err.message
+    });
   }
 }
