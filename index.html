@@ -911,10 +911,7 @@
   /* ══════════════════════════════════
      POP-UP + BREVO INTEGRATION
   ══════════════════════════════════ */
-  const BREVO_API_KEY = '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';
-  const BREVO_LIST_ID = 2;
-
-  const popup   = document.getElementById('popup');
+  const popup      = document.getElementById('popup');
   const popupClose = document.getElementById('popupClose');
 
   function openPopup()  { popup.classList.add('show'); document.body.style.overflow='hidden'; }
@@ -923,89 +920,31 @@
   popupClose.addEventListener('click', closePopup);
   popup.addEventListener('click', e => { if(e.target===popup) closePopup(); });
 
-  // Show after 5 seconds, once per day
-  const POPUP_KEY = 'nirmala_popup_ts';
-  const lastShown = localStorage.getItem(POPUP_KEY);
-  const oneDayMs  = 24 * 60 * 60 * 1000;
-  const shouldShow = !lastShown || (Date.now() - parseInt(lastShown)) > oneDayMs;
-  if(shouldShow) {
-    setTimeout(() => {
-      openPopup();
-      localStorage.setItem(POPUP_KEY, Date.now().toString());
-    }, 5000);
+  // Show after 3 seconds on every visit
+  // Only suppressed for 7 days AFTER user submits their email
+  const POPUP_SUBMITTED_KEY = 'nirmala_popup_done';
+  const submittedAt = localStorage.getItem(POPUP_SUBMITTED_KEY);
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const alreadySubmitted = submittedAt && (Date.now() - parseInt(submittedAt)) < sevenDaysMs;
+  if(!alreadySubmitted) {
+    setTimeout(openPopup, 3000);
   }
 
-  async function submitPopup() {
+  function submitPopup() {
     const emailVal = document.getElementById('popupEmail').value.trim();
     if(!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
       document.getElementById('popupEmail').focus();
       return;
     }
-    const btn = document.getElementById('popupSubmit');
-    btn.disabled = true;
-    btn.textContent = '...';
-
-    try {
-      const res = await fetch('https://api.brevo.com/v3/contacts', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json',
-          'api-key': BREVO_API_KEY,
-        },
-        body: JSON.stringify({
-          email: emailVal,
-          listIds: [BREVO_LIST_ID],
-          updateEnabled: true,
-        })
-      });
-
-      // 201 = created, 204 = updated (contact already exists)
-      if(res.status === 201 || res.status === 204) {
-        document.getElementById('popupForm').style.display = 'none';
-        document.getElementById('popupSuccess').style.display = 'block';
-        setTimeout(closePopup, 3000);
-      } else {
-        const err = await res.json();
-        console.warn('Brevo error:', err);
-        btn.disabled = false;
-        btn.textContent = 'Gabung';
-        alert('Terjadi kesalahan. Coba lagi.');
-      }
-    } catch(err) {
-      console.error('Network error:', err);
-      btn.disabled = false;
-      btn.textContent = 'Gabung';
-    }
-  }
-</script>
-</body>
-</html>obile drawer
-  const drawer = document.getElementById('drawer');
-  const burger = document.getElementById('burger');
-  const dClose = document.getElementById('dClose');
-  const openD  = () => { drawer.classList.add('open'); document.body.style.overflow='hidden'; };
-  const closeD = () => { drawer.classList.remove('open'); document.body.style.overflow=''; };
-  burger.addEventListener('click', openD);
-  dClose.addEventListener('click', closeD);
-  document.querySelectorAll('.d-link').forEach(l => l.addEventListener('click', closeD));
-  document.addEventListener('keydown', e => { if(e.key==='Escape') closeD(); });
-
-  // Scroll reveal
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); obs.unobserve(e.target); } });
-  }, {threshold:0.08});
-  document.querySelectorAll('.sr').forEach(el => obs.observe(el));
-
-  // Lead form
-  function doLead() {
-    const n = document.getElementById('nIn').value.trim();
-    const e = document.getElementById('eIn').value.trim();
-    if(!n){ document.getElementById('nIn').focus(); return; }
-    if(!e||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)){ document.getElementById('eIn').focus(); return; }
-    document.getElementById('lForm').style.display='none';
-    document.getElementById('lOk').style.display='block';
-    setTimeout(()=>window.open('https://tally.so/r/3ljZPo','_blank'),1200);
+    // Mark as submitted so popup won't show again for 7 days
+    localStorage.setItem('nirmala_popup_done', Date.now().toString());
+    // Show success, then close and open Tally
+    document.getElementById('popupForm').style.display = 'none';
+    document.getElementById('popupSuccess').style.display = 'block';
+    setTimeout(() => {
+      closePopup();
+      window.open('https://tally.so/r/3ljZPo?email=' + encodeURIComponent(emailVal), '_blank');
+    }, 3000);
   }
 </script>
 </body>
