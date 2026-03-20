@@ -47,20 +47,16 @@ export default async function handler(req, res) {
         listIds: [7],
         updateEnabled: true,
       }),
-    });
+});
 
-    const data = await response.json();
-
-    if (response.ok || response.status === 204) {
+    if (response.ok || response.status === 204 || response.status === 201) {
       return res.status(200).json({ success: true });
-    } else {
-      return res.status(500).json({ error: 'Brevo error', detail: data });
     }
 
-  } catch (err) {
-    return res.status(500).json({ 
-      error: 'Internal server error', 
-      detail: err.message 
-    });
+    const data = await response.json();
+    if (data.code === 'duplicate_parameter') {
+      return res.status(200).json({ success: true });
+    }
+    return res.status(500).json({ error: 'Brevo error', detail: data });
   }
 }
