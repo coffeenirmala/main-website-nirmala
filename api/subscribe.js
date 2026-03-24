@@ -12,37 +12,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    let body;
+    let email;
 
     if (typeof req.body === 'string') {
-      body = JSON.parse(req.body);
+      const parsed = JSON.parse(req.body);
+      email = parsed.email;
     } else if (typeof req.body === 'object' && req.body !== null) {
-      body = req.body;
+      email = req.body.email;
     } else {
       const chunks = [];
       for await (const chunk of req) {
         chunks.push(chunk);
       }
       const raw = Buffer.concat(chunks).toString();
-      body = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      email = parsed.email;
     }
-
-    const { email, firstName, lastName, phone, birthday, gender, listId } = body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email required' });
     }
-
-    // Build contact attributes
-    const attributes = {};
-    if (firstName) attributes.FIRSTNAME = firstName;
-    if (lastName) attributes.LASTNAME = lastName;
-    if (phone) attributes.SMS = phone;
-    if (birthday) attributes.DATE_OF_BIRTH = birthday;
-    if (gender) attributes.GENDER = gender;
-
-    // Use listId from body if provided (2 = loyalty, 7 = newsletter popup)
-    const targetListId = listId === 2 ? 2 : 7;
 
     const response = await fetch('https://api.brevo.com/v3/contacts', {
       method: 'POST',
@@ -52,9 +41,8 @@ export default async function handler(req, res) {
         'api-key': process.env.BREVO_API_KEY,
       },
       body: JSON.stringify({
-        email,
-        attributes,
-        listIds: [targetListId],
+        email: email,
+        listIds: [7],
         updateEnabled: true,
       }),
     });
@@ -72,10 +60,6 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({
       error: 'Internal server error',
-      detail: err.message
-    });
-  }
-}      error: 'Internal server error',
       detail: err.message
     });
   }
