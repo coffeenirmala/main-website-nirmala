@@ -1,182 +1,36 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nirmala — Loyalty Desk</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100vh; }
-.screen { max-width: 600px; margin: 0 auto; padding: 1.5rem 1rem; }
-.logo { text-align: center; margin-bottom: 1.5rem; }
-.logo h1 { font-size: 22px; font-weight: 500; letter-spacing: 0.05em; }
-.logo p { font-size: 13px; color: #888; margin-top: 4px; }
-.pin-card { background: #fff; border: 0.5px solid #ddd; border-radius: 12px; padding: 2rem 1.5rem; text-align: center; }
-.pin-label { font-size: 14px; color: #666; margin-bottom: 1.5rem; }
-.pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
-.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #ccc; background: transparent; transition: background 0.15s; }
-.pin-dot.filled { background: #222; border-color: #222; }
-.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 240px; margin: 0 auto; }
-.key { background: #f5f4f0; border: 0.5px solid #ddd; border-radius: 8px; padding: 14px; font-size: 18px; font-weight: 500; cursor: pointer; }
-.key.del { font-size: 13px; color: #888; }
-.pin-error { font-size: 13px; color: #c00; margin-top: 1rem; min-height: 20px; }
-.desk { display: none; }
-.header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-.header-bar h2 { font-size: 16px; font-weight: 500; }
-.logout-btn { font-size: 12px; color: #888; cursor: pointer; padding: 4px 10px; border: 0.5px solid #ddd; border-radius: 8px; background: none; }
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
-.stat { background: #fff; border-radius: 8px; padding: 12px 16px; }
-.stat-label { font-size: 12px; color: #888; }
-.stat-val { font-size: 22px; font-weight: 500; margin-top: 2px; }
-.search-bar { margin-bottom: 1rem; }
-.search-bar input { width: 100%; padding: 10px 14px; font-size: 15px; border: 0.5px solid #ccc; border-radius: 8px; }
-.member-list { display: flex; flex-direction: column; gap: 8px; }
-.member-card { background: #fff; border: 0.5px solid #eee; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
-.avatar { width: 40px; height: 40px; border-radius: 50%; background: #EEEDFE; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: #3C3489; flex-shrink: 0; }
-.member-name { font-size: 15px; font-weight: 500; }
-.member-email { font-size: 12px; color: #888; }
-.member-phone { font-size: 12px; color: #888; margin-top: 2px; }
-.badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: #E1F5EE; color: #085041; }
-.empty { text-align: center; padding: 2rem; color: #888; font-size: 14px; }
-</style>
-</head>
-<body>
-<div class="screen">
-  <div class="logo">
-    <h1>Nirmala</h1>
-    <p>Loyalty Desk</p>
-  </div>
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  <div class="pin-card" id="pin-screen">
-    <p class="pin-label">Masukkan PIN untuk lanjut</p>
-    <div class="pin-dots">
-      <div class="pin-dot" id="d0"></div>
-      <div class="pin-dot" id="d1"></div>
-      <div class="pin-dot" id="d2"></div>
-      <div class="pin-dot" id="d3"></div>
-    </div>
-    <div class="numpad">
-      <button class="key" onclick="pressKey('1')">1</button>
-      <button class="key" onclick="pressKey('2')">2</button>
-      <button class="key" onclick="pressKey('3')">3</button>
-      <button class="key" onclick="pressKey('4')">4</button>
-      <button class="key" onclick="pressKey('5')">5</button>
-      <button class="key" onclick="pressKey('6')">6</button>
-      <button class="key" onclick="pressKey('7')">7</button>
-      <button class="key" onclick="pressKey('8')">8</button>
-      <button class="key" onclick="pressKey('9')">9</button>
-      <button class="key del" onclick="pressKey('del')">hapus</button>
-      <button class="key" onclick="pressKey('0')">0</button>
-      <button class="key del" style="font-size:18px" onclick="pressKey('ok')">ok</button>
-    </div>
-    <p class="pin-error" id="pin-error"></p>
-  </div>
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  <div class="desk" id="desk-screen">
-    <div class="header-bar">
-      <h2>Member Loyalty</h2>
-      <button class="logout-btn" onclick="logout()">Keluar</button>
-    </div>
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-label">Total member</div>
-        <div class="stat-val" id="total-count">—</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Hasil pencarian</div>
-        <div class="stat-val" id="search-count">—</div>
-      </div>
-    </div>
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Cari nama, email, atau nomor HP..." oninput="filterMembers()" />
-    </div>
-    <div class="member-list" id="member-list">
-      <div class="empty">Memuat data member...</div>
-    </div>
-  </div>
-</div>
+  const { search } = req.query;
 
-<script>
-const CORRECT_PIN = '1234';
-let pin = '';
-let allMembers = [];
-
-function pressKey(k) {
-  if (k === 'del') { pin = pin.slice(0, -1); }
-  else if (k === 'ok') { checkPin(); return; }
-  else if (pin.length < 4) { pin += k; }
-  updateDots();
-  if (pin.length === 4) setTimeout(checkPin, 150);
-}
-
-function updateDots() {
-  for (let i = 0; i < 4; i++) {
-    document.getElementById('d' + i).classList.toggle('filled', i < pin.length);
-  }
-}
-
-function checkPin() {
-  if (pin === CORRECT_PIN) {
-    document.getElementById('pin-screen').style.display = 'none';
-    document.getElementById('desk-screen').style.display = 'block';
-    loadMembers();
-  } else {
-    document.getElementById('pin-error').textContent = 'PIN salah, coba lagi';
-    pin = ''; updateDots();
-  }
-}
-
-function logout() {
-  pin = ''; updateDots();
-  document.getElementById('pin-error').textContent = '';
-  document.getElementById('pin-screen').style.display = 'block';
-  document.getElementById('desk-screen').style.display = 'none';
-  document.getElementById('search-input').value = '';
-}
-
-async function loadMembers() {
   try {
-    const res = await fetch('/api/loyalty-members');
-    const data = await res.json();
-    allMembers = data.contacts || [];
-    document.getElementById('total-count').textContent = allMembers.length;
-    document.getElementById('search-count').textContent = allMembers.length;
-    renderMembers(allMembers);
-  } catch(e) {
-    document.getElementById('member-list').innerHTML = '<div class="empty">Gagal memuat data. Cek koneksi internet.</div>';
+    const brevoRes = await fetch(`https://api.brevo.com/v3/contacts/lists/8/contacts?limit=100`, {
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+      },
+    });
+
+    const data = await brevoRes.json();
+    let contacts = data.contacts || [];
+
+    if (search) {
+      const q = search.toLowerCase();
+      contacts = contacts.filter(c => {
+        const name = `${c.attributes?.FIRSTNAME || ''} ${c.attributes?.LASTNAME || ''}`.toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        const phone = (c.attributes?.SMS || '').toLowerCase();
+        return name.includes(q) || email.includes(q) || phone.includes(q);
+      });
+    }
+
+    return res.status(200).json({ contacts });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 }
-
-function filterMembers() {
-  const q = document.getElementById('search-input').value.toLowerCase();
-  const filtered = allMembers.filter(c => {
-    const name = `${c.attributes?.FIRSTNAME || ''} ${c.attributes?.LASTNAME || ''}`.toLowerCase();
-    return name.includes(q) || c.email.toLowerCase().includes(q) || (c.attributes?.SMS || '').includes(q);
-  });
-  document.getElementById('search-count').textContent = filtered.length;
-  renderMembers(filtered);
-}
-
-function renderMembers(list) {
-  const el = document.getElementById('member-list');
-  if (!list.length) { el.innerHTML = '<div class="empty">Tidak ada member ditemukan</div>'; return; }
-  el.innerHTML = list.map(c => {
-    const fn = c.attributes?.FIRSTNAME || '';
-    const ln = c.attributes?.LASTNAME || '';
-    const name = [fn, ln].filter(Boolean).join(' ') || c.email;
-    const phone = c.attributes?.SMS || '';
-    const av = ((fn[0]||'')+(ln[0]||'')).toUpperCase() || '?';
-    return `<div class="member-card">
-      <div class="avatar">${av}</div>
-      <div style="flex:1;min-width:0">
-        <div class="member-name">${name}</div>
-        <div class="member-email">${c.email}</div>
-        ${phone ? `<div class="member-phone">${phone}</div>` : ''}
-      </div>
-      <span class="badge">Member</span>
-    </div>`;
-  }).join('');
-}
-</script>
-</body>
-</html>
