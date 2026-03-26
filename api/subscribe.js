@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     // ── Determine target list ────────────────────────────────────────────────
     // listId 2 = loyalty program | listId 7 = newsletter popup
-    const targetListId = listId === 2 ? 2 : 7;
+    const targetListId = listId === 2 ? 8 : 7;
 
     // ── Check API key presence ───────────────────────────────────────────────
     if (!process.env.BREVO_API_KEY) {
