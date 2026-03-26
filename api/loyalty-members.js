@@ -9,8 +9,7 @@ export default async function handler(req, res) {
   const { search } = req.query;
 
   try {
-    let url = `https://api.brevo.com/v3/contacts?limit=100&listId=8`;
-    const brevoRes = await fetch(url, {
+    const brevoRes = await fetch(`https://api.brevo.com/v3/contacts/lists/8/contacts?limit=100`, {
       headers: {
         'accept': 'application/json',
         'api-key': process.env.BREVO_API_KEY,
