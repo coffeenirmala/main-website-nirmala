@@ -31,13 +31,41 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .search-bar { margin-bottom: 1rem; }
 .search-bar input { width: 100%; padding: 10px 14px; font-size: 15px; border: 0.5px solid #ccc; border-radius: 8px; }
 .member-list { display: flex; flex-direction: column; gap: 8px; }
-.member-card { background: #fff; border: 0.5px solid #eee; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.member-card { background: #fff; border: 0.5px solid #eee; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.member-card:active { background: #f9f9f9; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; background: #EEEDFE; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; color: #3C3489; flex-shrink: 0; }
 .member-name { font-size: 15px; font-weight: 500; }
 .member-email { font-size: 12px; color: #888; }
-.member-phone { font-size: 12px; color: #888; margin-top: 2px; }
+.member-bday { font-size: 12px; color: #888; margin-top: 2px; }
+.punch-preview { font-size: 12px; color: #3C3489; margin-top: 3px; }
 .badge { font-size: 11px; padding: 3px 8px; border-radius: 20px; background: #E1F5EE; color: #085041; }
 .empty { text-align: center; padding: 2rem; color: #888; font-size: 14px; }
+
+/* Detail panel */
+.detail { display: none; }
+.back-btn { font-size: 13px; color: #666; cursor: pointer; padding: 6px 0; margin-bottom: 1rem; display: flex; align-items: center; gap: 6px; background: none; border: none; }
+.profile-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1.25rem; margin-bottom: 1rem; }
+.profile-top { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
+.avatar-lg { width: 52px; height: 52px; border-radius: 50%; background: #EEEDFE; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 500; color: #3C3489; flex-shrink: 0; }
+.profile-name { font-size: 17px; font-weight: 500; }
+.profile-email { font-size: 13px; color: #888; }
+.profile-bday { font-size: 13px; color: #888; margin-top: 2px; }
+.punch-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1.25rem; margin-bottom: 1rem; }
+.punch-title { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+.punch-circles { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.punch-circle { width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.punch-circle.filled { background: #3C3489; border-color: #3C3489; color: white; }
+.punch-circle.free { background: #E1F5EE; border-color: #085041; color: #085041; font-size: 11px; font-weight: 600; }
+.punch-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.punch-stat { background: #f5f4f0; border-radius: 8px; padding: 10px 12px; }
+.punch-stat-label { font-size: 11px; color: #888; }
+.punch-stat-val { font-size: 18px; font-weight: 500; margin-top: 2px; }
+.action-btns { display: flex; gap: 8px; }
+.btn-punch { flex: 1; padding: 12px; background: #3C3489; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
+.btn-redeem { flex: 1; padding: 12px; background: #085041; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; opacity: 0.4; }
+.btn-redeem.active { opacity: 1; }
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -47,6 +75,7 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
     <p>Loyalty Desk</p>
   </div>
 
+  <!-- PIN Screen -->
   <div class="pin-card" id="pin-screen">
     <p class="pin-label">Masukkan PIN untuk lanjut</p>
     <div class="pin-dots">
@@ -72,6 +101,7 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
     <p class="pin-error" id="pin-error"></p>
   </div>
 
+  <!-- Member List -->
   <div class="desk" id="desk-screen">
     <div class="header-bar">
       <h2>Member Loyalty</h2>
@@ -88,18 +118,56 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
       </div>
     </div>
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Cari nama, email, atau nomor HP..." oninput="filterMembers()" />
+      <input type="text" id="search-input" placeholder="Cari nama, email, atau tanggal lahir..." oninput="filterMembers()" />
     </div>
     <div class="member-list" id="member-list">
       <div class="empty">Memuat data member...</div>
     </div>
   </div>
+
+  <!-- Detail Member -->
+  <div class="detail" id="detail-screen">
+    <button class="back-btn" onclick="goBack()">← Kembali</button>
+    <div class="profile-card">
+      <div class="profile-top">
+        <div class="avatar-lg" id="detail-avatar">?</div>
+        <div>
+          <div class="profile-name" id="detail-name">—</div>
+          <div class="profile-email" id="detail-email">—</div>
+          <div class="profile-bday" id="detail-bday"></div>
+        </div>
+      </div>
+    </div>
+    <div class="punch-card">
+      <div class="punch-title">Punch Card (8x = 1 Free Kopi)</div>
+      <div class="punch-circles" id="punch-circles"></div>
+      <div class="punch-stats">
+        <div class="punch-stat">
+          <div class="punch-stat-label">Punch sekarang</div>
+          <div class="punch-stat-val" id="punch-current">0</div>
+        </div>
+        <div class="punch-stat">
+          <div class="punch-stat-label">Total transaksi</div>
+          <div class="punch-stat-val" id="punch-total">0</div>
+        </div>
+      </div>
+      <div class="action-btns">
+        <button class="btn-punch" onclick="addPunch()">+ Tambah Transaksi</button>
+        <button class="btn-redeem" id="btn-redeem" onclick="redeemFree()">Redeem Free Kopi</button>
+      </div>
+    </div>
+  </div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 const CORRECT_PIN = '1234';
+const PUNCHES_FOR_FREE = 8;
 let pin = '';
 let allMembers = [];
+let currentMember = null;
+let currentPunch = null;
 
 function pressKey(k) {
   if (k === 'del') { pin = pin.slice(0, -1); }
@@ -131,6 +199,7 @@ function logout() {
   document.getElementById('pin-error').textContent = '';
   document.getElementById('pin-screen').style.display = 'block';
   document.getElementById('desk-screen').style.display = 'none';
+  document.getElementById('detail-screen').style.display = 'none';
   document.getElementById('search-input').value = '';
 }
 
@@ -143,7 +212,7 @@ async function loadMembers() {
     document.getElementById('search-count').textContent = allMembers.length;
     renderMembers(allMembers);
   } catch(e) {
-    document.getElementById('member-list').innerHTML = '<div class="empty">Gagal memuat data. Cek koneksi internet.</div>';
+    document.getElementById('member-list').innerHTML = '<div class="empty">Gagal memuat data.</div>';
   }
 }
 
@@ -151,7 +220,8 @@ function filterMembers() {
   const q = document.getElementById('search-input').value.toLowerCase();
   const filtered = allMembers.filter(c => {
     const name = `${c.attributes?.FIRSTNAME || ''} ${c.attributes?.LASTNAME || ''}`.toLowerCase();
-    return name.includes(q) || c.email.toLowerCase().includes(q) || (c.attributes?.SMS || '').includes(q);
+    const bday = (c.attributes?.DATE_OF_BIRTH || '').toLowerCase();
+    return name.includes(q) || c.email.toLowerCase().includes(q) || bday.includes(q);
   });
   document.getElementById('search-count').textContent = filtered.length;
   renderMembers(filtered);
@@ -164,18 +234,110 @@ function renderMembers(list) {
     const fn = c.attributes?.FIRSTNAME || '';
     const ln = c.attributes?.LASTNAME || '';
     const name = [fn, ln].filter(Boolean).join(' ') || c.email;
-    const phone = c.attributes?.SMS || '';
+    const bday = c.attributes?.DATE_OF_BIRTH || '';
     const av = ((fn[0]||'')+(ln[0]||'')).toUpperCase() || '?';
-    return `<div class="member-card">
+    return `<div class="member-card" onclick="openDetail('${c.email}')">
       <div class="avatar">${av}</div>
       <div style="flex:1;min-width:0">
         <div class="member-name">${name}</div>
         <div class="member-email">${c.email}</div>
-        ${phone ? `<div class="member-phone">${phone}</div>` : ''}
+        ${bday ? `<div class="member-bday">🎂 ${bday}</div>` : ''}
+        <div class="punch-preview" id="preview-${btoa(c.email).replace(/=/g,'')}">Memuat punch...</div>
       </div>
-      <span class="badge">Member</span>
     </div>`;
   }).join('');
+  list.forEach(c => loadPunchPreview(c.email));
+}
+
+async function loadPunchPreview(email) {
+  try {
+    const res = await fetch(`/api/punch?email=${encodeURIComponent(email)}`);
+    const data = await res.json();
+    const key = btoa(email).replace(/=/g,'');
+    const el = document.getElementById('preview-' + key);
+    if (el) {
+      const filled = '●'.repeat(data.punches) + '○'.repeat(Math.max(0, PUNCHES_FOR_FREE - data.punches));
+      el.textContent = `${filled} ${data.punches}/${PUNCHES_FOR_FREE}`;
+    }
+  } catch(e) {}
+}
+
+async function openDetail(email) {
+  currentMember = allMembers.find(c => c.email === email);
+  if (!currentMember) return;
+
+  document.getElementById('desk-screen').style.display = 'none';
+  document.getElementById('detail-screen').style.display = 'block';
+
+  const fn = currentMember.attributes?.FIRSTNAME || '';
+  const ln = currentMember.attributes?.LASTNAME || '';
+  const name = [fn, ln].filter(Boolean).join(' ') || email;
+  const bday = currentMember.attributes?.DATE_OF_BIRTH || '';
+  const av = ((fn[0]||'')+(ln[0]||'')).toUpperCase() || '?';
+
+  document.getElementById('detail-avatar').textContent = av;
+  document.getElementById('detail-name').textContent = name;
+  document.getElementById('detail-email').textContent = email;
+  document.getElementById('detail-bday').textContent = bday ? '🎂 ' + bday : '';
+
+  await refreshPunch(email);
+}
+
+async function refreshPunch(email) {
+  const res = await fetch(`/api/punch?email=${encodeURIComponent(email)}`);
+  currentPunch = await res.json();
+  renderPunchCard();
+}
+
+function renderPunchCard() {
+  const p = currentPunch.punches || 0;
+  const total = currentPunch.total_punches || 0;
+  document.getElementById('punch-current').textContent = p;
+  document.getElementById('punch-total').textContent = total;
+
+  const circles = document.getElementById('punch-circles');
+  circles.innerHTML = Array.from({length: PUNCHES_FOR_FREE}, (_, i) =>
+    `<div class="punch-circle ${i < p ? 'filled' : ''}">${i < p ? '☕' : ''}</div>`
+  ).join('');
+
+  const btnRedeem = document.getElementById('btn-redeem');
+  btnRedeem.classList.toggle('active', p >= PUNCHES_FOR_FREE);
+}
+
+async function addPunch() {
+  const res = await fetch('/api/punch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: currentMember.email })
+  });
+  currentPunch = await res.json();
+  renderPunchCard();
+  showToast('Transaksi ditambahkan! ' + currentPunch.punches + '/' + PUNCHES_FOR_FREE);
+}
+
+async function redeemFree() {
+  if (!currentPunch || currentPunch.punches < PUNCHES_FOR_FREE) return;
+  const res = await fetch('/api/punch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: currentMember.email, action: 'redeem' })
+  });
+  currentPunch = await res.json();
+  renderPunchCard();
+  showToast('Free kopi berhasil di-redeem! ☕');
+}
+
+function goBack() {
+  document.getElementById('detail-screen').style.display = 'none';
+  document.getElementById('desk-screen').style.display = 'block';
+  loadMembers();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
 }
 </script>
 </body>
