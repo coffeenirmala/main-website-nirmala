@@ -14,7 +14,13 @@ export default async function handler(req, res) {
     });
 
     const data = await brevoRes.json();
-    const contacts = data.contacts || [];
+    let contacts = data.contacts || [];
+
+    // Filter hanya yang ada di list #8
+    contacts = contacts.filter(c => 
+      Array.isArray(c.listIds) && c.listIds.includes(8)
+    );
+
     return res.status(200).json({ contacts });
   } catch (err) {
     return res.status(500).json({ error: err.message });
