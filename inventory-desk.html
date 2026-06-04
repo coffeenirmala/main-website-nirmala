@@ -201,6 +201,9 @@ body{font-family:'Libre Franklin',sans-serif;background:var(--cream);color:var(-
   .modal-box{padding:24px 20px;}
   #toaster{right:12px;left:12px;}
   .toast{max-width:100%;}
+  #owner-stat-strip{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:0;background:var(--border);border:1px solid var(--border);border-radius:4px;}
+  #owner-stat-strip::-webkit-scrollbar{display:none;}
+  #owner-stat-strip .stat-cell{min-width:160px;flex-shrink:0;}
 }
 </style>
 </head>
