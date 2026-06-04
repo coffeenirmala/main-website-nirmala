@@ -187,13 +187,21 @@ body{font-family:'Libre Franklin',sans-serif;background:var(--cream);color:var(-
 
 /* ── RESPONSIVE ── */
 @media(max-width:768px){
-  .main{padding:24px 20px}.stat-strip{grid-template-columns:1fr 1fr}
-  .input-grid{grid-template-columns:1fr}.forecast-grid{grid-template-columns:1fr}
-  .topbar{padding:0 20px}.nav-link{padding:0 12px;font-size:12px}
+  .main{padding:16px 14px}
+  .stat-strip{grid-template-columns:1fr 1fr}
+  .input-grid{grid-template-columns:1fr}
+  .forecast-grid{grid-template-columns:1fr}
+  .topbar{padding:0 12px;height:52px;}
+  .topbar-logo{height:26px;margin-right:8px;}
+  .topbar-nav{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-shrink:1;}
+  .topbar-nav::-webkit-scrollbar{display:none;}
+  .nav-link{padding:0 10px;font-size:11px;height:52px;flex-shrink:0;}
+  .role-pill{padding:5px 10px;font-size:11px;gap:4px;flex-shrink:0;}
+  .data-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .modal-box{padding:24px 20px;}
+  #toaster{right:12px;left:12px;}
+  .toast{max-width:100%;}
 }
-</style>
-</head>
-<body>
 
 <!-- LOGIN -->
 <div id="login-page">
