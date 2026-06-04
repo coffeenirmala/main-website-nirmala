@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Nirmala Coffee</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Libre+Franklin:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --ink:#111110;--ink2:#3a3a38;--mist:#8a8a86;--border:#ddddd8;
+  --cream:#f5f3ee;--paper:#faf9f6;--white:#ffffff;
+  --green:#2a5c3f;--green2:#3d7a57;--warn:#b85c00;--danger:#991b1b;
+}
+body{font-family:'Libre Franklin',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+/* ── LOGIN ── */
+#login-page{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;background:var(--ink);}
+.login-left{background:var(--ink);display:flex;flex-direction:column;justify-content:space-between;padding:56px;position:relative;overflow:hidden;}
+.login-left::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 60%,rgba(42,92,63,0.35) 0%,transparent 65%);pointer-events:none;}
+.login-right{background:var(--paper);display:flex;align-items:center;justify-content:center;padding:56px;}
+.login-logo{height:80px;width:auto;object-fit:contain;filter:brightness(0) invert(1);position:relative;z-index:1;}
+.login-tagline{font-size:13px;color:rgba(255,255,255,0.35);letter-spacing:2.5px;text-transform:uppercase;position:relative;z-index:1;}
+.login-form{width:100%;max-width:360px;}
+.login-form h2{font-family:'Playfair Display',serif;font-size:30px;font-weight:700;margin-bottom:8px;}
+.login-form p{font-size:14px;color:var(--mist);margin-bottom:40px;}
+.role-card{border:1.5px solid var(--border);border-radius:4px;padding:20px 24px;cursor:pointer;transition:all 0.2s;margin-bottom:12px;background:var(--white);display:flex;align-items:center;gap:16px;}
+.role-card:hover{border-color:var(--ink2);}
+.role-card.selected{border-color:var(--ink);background:var(--ink);color:var(--paper);}
+.role-card.selected .role-sub{color:rgba(255,255,255,0.5);}
+.role-icon{font-size:22px;width:36px;text-align:center;flex-shrink:0;}
+.role-name{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;}
+.role-sub{font-size:12px;color:var(--mist);margin-top:2px;}
+.pin-field{width:100%;background:var(--white);border:1.5px solid var(--border);border-radius:4px;padding:16px 20px;font-size:26px;letter-spacing:10px;text-align:center;font-family:'Playfair Display',serif;color:var(--ink);margin-bottom:12px;transition:border-color 0.2s;}
+.pin-field:focus{outline:none;border-color:var(--ink);}
+.pin-error{font-size:13px;color:var(--danger);margin-bottom:12px;display:none;}
+.btn-login{width:100%;background:var(--ink);color:var(--paper);border:none;border-radius:4px;padding:17px 24px;font-family:'Libre Franklin',sans-serif;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:background 0.2s;}
+.btn-login:hover{background:var(--ink2);}
+.pin-hint{font-size:12px;color:var(--mist);text-align:center;margin-top:20px;}
+@media(max-width:700px){#login-page{grid-template-columns:1fr}.login-left{display:none}.login-right{padding:40px 28px}}
+
+/* ── APP ── */
+#app{display:none;flex-direction:column;min-height:100vh;}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);height:60px;display:flex;align-items:center;padding:0 32px;position:sticky;top:0;z-index:100;}
+.topbar-logo{height:34px;width:auto;object-fit:contain;margin-right:32px;flex-shrink:0;}
+.topbar-nav{display:flex;gap:0;flex:1;}
+.nav-link{padding:0 20px;height:60px;display:flex;align-items:center;font-size:13px;font-weight:500;letter-spacing:0.5px;color:var(--mist);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;font-family:'Libre Franklin',sans-serif;}
+.nav-link:hover{color:var(--ink);}
+.nav-link.active{color:var(--ink);border-bottom-color:var(--ink);}
+.topbar-right{display:flex;align-items:center;gap:16px;margin-left:auto;}
+.role-pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--border);border-radius:100px;font-size:12px;font-weight:600;color:var(--ink2);cursor:pointer;transition:all 0.15s;letter-spacing:0.3px;}
+.role-pill:hover{border-color:var(--ink);color:var(--ink);}
+.role-pill.owner-pill{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.role-pill.owner-pill:hover{background:var(--ink2);}
+
+/* ── MAIN ── */
+.main{flex:1;padding:40px 32px;max-width:1200px;width:100%;margin:0 auto;}
+.page-header{margin-bottom:36px;}
+.page-title{font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--ink);letter-spacing:-0.5px;line-height:1.1;}
+.page-subtitle{font-size:14px;color:var(--mist);margin-top:6px;}
+
+/* ── STAT STRIP ── */
+.stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:36px;}
+.stat-cell{background:var(--white);padding:24px 28px;}
+.stat-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin-bottom:10px;}
+.stat-value{font-family:'Playfair Display',serif;font-size:34px;font-weight:900;color:var(--ink);line-height:1;}
+.stat-value.danger{color:var(--danger);}
+.stat-value.warn{color:var(--warn);}
+.stat-value.green{color:var(--green);}
+.stat-note{font-size:12px;color:var(--mist);margin-top:6px;}
+
+/* ── TABLE ── */
+.data-table{width:100%;border-collapse:collapse;}
+.data-table thead tr{border-bottom:2px solid var(--ink);}
+.data-table th{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);padding:0 0 14px 0;text-align:left;}
+.data-table th:not(:first-child){padding-left:20px;}
+.data-table tbody tr{border-bottom:1px solid var(--border);transition:background 0.1s;}
+.data-table tbody tr:hover{background:var(--cream);}
+.data-table td{padding:16px 0;font-size:14px;vertical-align:middle;}
+.data-table td:not(:first-child){padding-left:20px;}
+.item-name{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--ink);}
+.item-unit{font-size:12px;color:var(--mist);margin-top:2px;}
+
+/* ── STATUS ── */
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:0.5px;}
+.s-ok{background:rgba(42,92,63,0.1);color:var(--green);}
+.s-warn{background:rgba(184,92,0,0.1);color:var(--warn);}
+.s-danger{background:rgba(153,27,27,0.1);color:var(--danger);}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.dot-ok{background:var(--green);}
+.dot-warn{background:var(--warn);animation:blink 1.8s infinite;}
+.dot-danger{background:var(--danger);animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.stock-bar-wrap{height:4px;background:var(--border);border-radius:2px;overflow:hidden;width:120px;}
+.stock-bar{height:100%;border-radius:2px;transition:width 0.4s ease;}
+
+/* ── BARISTA INPUT ── */
+.input-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+.input-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:24px;transition:border-color 0.15s;}
+.input-card:hover{border-color:var(--ink2);}
+.input-card-name{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;}
+.input-card-stock{font-size:12px;color:var(--mist);margin-bottom:16px;}
+.input-row{display:flex;gap:8px;align-items:center;}
+.qty-input{flex:1;border:1.5px solid var(--border);border-radius:4px;padding:12px 14px;font-size:18px;font-family:'Playfair Display',serif;font-weight:700;color:var(--ink);background:var(--cream);transition:border-color 0.15s,background 0.15s;text-align:right;width:100%;}
+.qty-input:focus{outline:none;border-color:var(--ink);background:var(--white);}
+.unit-label{font-size:13px;color:var(--mist);min-width:28px;}
+.deduct-btn{background:var(--ink);color:var(--paper);border:none;border-radius:4px;padding:12px 20px;font-family:'Libre Franklin',sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background 0.15s;}
+.deduct-btn:hover{background:var(--green);}
+
+/* ── RESTOCK ── */
+.restock-trigger{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;background:var(--white);border:1px solid var(--border);border-radius:4px;margin-bottom:10px;transition:border-color 0.15s;}
+.restock-trigger:hover{border-color:var(--ink2);}
+.restock-name{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;}
+.restock-stock{font-size:12px;color:var(--mist);margin-top:3px;}
+
+/* ── BUTTONS ── */
+.btn-sm{background:var(--ink);color:var(--paper);border:none;border-radius:4px;padding:10px 18px;font-family:'Libre Franklin',sans-serif;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:background 0.15s;white-space:nowrap;flex-shrink:0;}
+.btn-sm:hover{background:var(--green);}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--border);border-radius:4px;padding:10px 18px;font-family:'Libre Franklin',sans-serif;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
+.btn-ghost:hover{border-color:var(--ink);}
+.btn-full{width:100%;background:var(--ink);color:var(--paper);border:none;border-radius:4px;padding:15px 24px;font-family:'Libre Franklin',sans-serif;font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:background 0.15s;}
+.btn-full:hover{background:var(--green);}
+.btn-full.danger{background:var(--danger);}
+.btn-full.danger:hover{background:#7f1d1d;}
+
+/* ── ALERTS ── */
+.alert-strip{display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-radius:4px;margin-bottom:20px;border-left:3px solid;}
+.alert-danger{background:rgba(153,27,27,0.06);border-color:var(--danger);}
+.alert-warn{background:rgba(184,92,0,0.06);border-color:var(--warn);}
+.alert-label{font-size:13px;font-weight:600;}
+.alert-body{font-size:12px;margin-top:3px;color:var(--mist);line-height:1.5;}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(17,17,16,0.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(2px);}
+.modal-box{background:var(--paper);border-radius:4px;padding:40px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:modalIn 0.2s ease;}
+@keyframes modalIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-family:'Playfair Display',serif;font-size:24px;font-weight:900;margin-bottom:24px;color:var(--ink);}
+.form-label{display:block;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin-bottom:8px;}
+.form-input{width:100%;border:1.5px solid var(--border);border-radius:4px;padding:13px 16px;font-size:15px;font-family:'Libre Franklin',sans-serif;color:var(--ink);background:var(--white);margin-bottom:20px;transition:border-color 0.15s;}
+.form-input:focus{outline:none;border-color:var(--ink);}
+.modal-actions{display:flex;gap:10px;margin-top:8px;}
+
+/* ── TOAST ── */
+#toaster{position:fixed;top:72px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--ink);color:var(--paper);padding:14px 18px;border-radius:4px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;max-width:320px;animation:toastIn 0.25s ease;box-shadow:0 4px 20px rgba(0,0,0,0.2);}
+.toast.ok{border-left:3px solid var(--green);}
+.toast.err{border-left:3px solid var(--danger);}
+.toast.wrn{border-left:3px solid var(--warn);}
+@keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+.hidden{display:none !important;}
+
+/* ── FORECAST ── */
+.forecast-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.forecast-card{background:var(--white);border:1px solid var(--border);border-radius:4px;padding:28px;}
+.fc-title{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
+.consumption-item{padding:10px 0;border-bottom:1px solid var(--border);}
+.consumption-item:last-child{border-bottom:none;}
+.consumption-bar-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.consumption-name{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;}
+.consumption-val{font-size:12px;color:var(--mist);}
+.consumption-bar-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.consumption-bar-fill{height:100%;border-radius:3px;transition:width 0.6s ease;}
+
+/* ── MENU GAUGE ── */
+.menu-gauge-list{display:flex;flex-direction:column;gap:0;}
+.menu-gauge-item{padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s;}
+.menu-gauge-item:last-child{border-bottom:none;}
+.menu-gauge-item:hover{background:var(--cream);margin:0 -4px;padding:12px 4px;border-radius:3px;}
+.mgauge-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.mgauge-name{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;}
+.mgauge-label{font-size:11px;font-weight:600;text-align:right;}
+.mgauge-sub{font-size:10px;color:var(--mist);margin-top:1px;}
+.mgauge-bar-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.mgauge-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}
+.mgauge-bottleneck{font-size:10px;color:var(--mist);margin-top:3px;}
+
+/* ── MATH BOX ── */
+.math-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);}
+.math-row:last-child{border-bottom:none;}
+.math-row.bottleneck{background:rgba(153,27,27,0.04);margin:0 -8px;padding:8px 8px;border-radius:3px;}
+.math-formula{font-family:monospace;font-size:11px;background:var(--cream);padding:10px 14px;border-radius:4px;line-height:1.8;margin-top:12px;}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:60px 20px;color:var(--mist);}
+.empty-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink2);margin-bottom:8px;}
+.empty-text{font-size:14px;line-height:1.6;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  .main{padding:24px 20px}.stat-strip{grid-template-columns:1fr 1fr}
+  .input-grid{grid-template-columns:1fr}.forecast-grid{grid-template-columns:1fr}
+  .topbar{padding:0 20px}.nav-link{padding:0 12px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-left">
+    <img id="login-logo" class="login-logo" alt="N">
+    <div class="login-tagline">Inventory & Operations</div>
+  </div>
+  <div class="login-right">
+    <div class="login-form">
+      <h2>Selamat datang.</h2>
+      <p>Pilih role dan masukkan PIN untuk melanjutkan.</p>
+      <div class="role-card selected" id="rc-barista" onclick="selectRole('barista')">
+        <div class="role-icon">☕</div>
+        <div><div class="role-name">Barista</div><div class="role-sub">Input stok & restock harian</div></div>
+      </div>
+      <div class="role-card" id="rc-owner" onclick="selectRole('owner')">
+        <div class="role-icon">◎</div>
+        <div><div class="role-name">Owner</div><div class="role-sub">Dashboard, laporan & forecast</div></div>
+      </div>
+      <div style="margin-top:28px;margin-bottom:6px;">
+        <label class="form-label" style="margin-bottom:8px;">PIN Akses</label>
+        <input type="password" class="pin-field" id="pin-input" maxlength="4" placeholder="— — — —" autocomplete="off">
+        <div class="pin-error" id="pin-error">PIN salah. Coba lagi.</div>
+      </div>
+      <button class="btn-login" onclick="attemptLogin()">Masuk →</button>
+      <div class="pin-hint">Barista: 1234 &nbsp;·&nbsp; </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <img id="topbar-logo" class="topbar-logo" alt="N">
+    <div class="topbar-nav" id="nav-tabs"></div>
+    <div class="topbar-right">
+      <div class="role-pill" id="role-pill" onclick="logout()">
+        <span id="pill-icon">☕</span>
+        <span id="pill-label">Barista</span>
+        <span style="color:var(--border);margin:0 2px;">·</span>
+        <span style="font-weight:400;color:var(--mist);">Keluar</span>
+      </div>
+    </div>
+  </div>
+  <div class="main" id="main-content"></div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" class="modal-overlay hidden" onclick="handleOverlayClick(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div id="modal-inner"></div>
+  </div>
+</div>
+<div id="toaster"></div>
+
+<script>
+// ══ LOGO ══
+const LOGO_B64 = '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';
+document.getElementById('login-logo').src = 'data:image/png;base64,' + LOGO_B64;
+document.getElementById('topbar-logo').src = 'data:image/png;base64,' + LOGO_B64;
+// topbar logo: invert to black on white bg
+document.getElementById('topbar-logo').style.filter = 'brightness(0)';
+
+// ══ DATA ══
+const PINS = {barista:'1234', owner:'9999'};
+
+const INVENTORY_DEF = [
+  {name:'blend',      unit:'gr',  init:346,   rop:400,  ropLabel:null},
+  {name:'Creamer',      unit:'gr',  init:648,   rop:450,  ropLabel:null},
+  {name:'Susu',         unit:'ml',  init:8200,  rop:2000, ropLabel:null},
+  {name:'SKM',          unit:'ml',  init:246,   rop:490,  ropLabel:null},
+  {name:'Pistachio',    unit:'ml',  init:1036,  rop:300,  ropLabel:null},
+  {name:'Matcha',       unit:'gr',  init:0,     rop:255,  ropLabel:null},
+  {name:'V60',          unit:'gr',  init:200,   rop:52,   ropLabel:null},
+  {name:'Soda',         unit:'pcs', init:10,    rop:300, ropLabel:null},
+  {name:'Mix Berry',    unit:'ml',  init:118.5, rop:300, ropLabel:null},
+  {name:'sirup Lemon',  unit:'ml',  init:0,     rop:300, ropLabel:null},
+  {name:'Jeruk nipis',  unit:'pcs', init:10,    rop:3, ropLabel:null},
+  {name:'coklat bubuk', unit:'gr', init:10,    rop:255, ropLabel:null},
+  {name:'dried lemon',  unit:'pcs', init:10,    rop:3, ropLabel:null},
+];
+
+const RECIPES = {
+  'Dirty Matcha':       {Matcha:15, SKM:10, Creamer:10, Susu:80, blend:9},
+  'Kopi Salted Caramel':{blend:9, Creamer:15, Susu:80, 'Salted Caramel':20},
+  'Americano':          {blend:18},
+  'Kopi Gula Aren':     {blend:9, Creamer:15, SKM:10, Susu:80, 'Gula Aren':15},
+  'Matcha Latte':       {Matcha:15, SKM:5, Creamer:10, Susu:80},
+  'Nirmala':            {blend:9, Creamer:15, SKM:15, Susu:80, Pistachio:10},
+  'Dirty Latte':        {blend:18, Susu:140},
+  'V60':                {V60:15},
+  'Coffee Mocktail':    {blend:9, Soda:0.5, 'Mix Berry':15},
+  'Virgin Mojito':      {Soda:0.5, 'Jeruk nipis':1},
+  'Ice Latte':          {blend:9, Susu:120},
+  'Hot Latte':          {blend:9, Susu:150},
+  'Spanish Latte':      {blend:18, Creamer:15, SKM:20, Susu:80},
+};
+
+// ══ UNIT PRICES — Rp per satuan (gr / ml / pcs) ══
+// Rumus: Harga Beli Kemasan ÷ Isi Kemasan = Harga per Satuan
+// Contoh: Arabica Rp 90.000 / 100 gr = Rp 900 per gr
+const UNIT_PRICES = {
+  'blend':          180,   // Rp 90.000 / 100 gr
+  'Creamer':         80,   // Rp 40.000 / 500 gr
+  'Susu':            14.3,   // Rp 20.000 / 1.000 ml
+  'SKM':             40,   // Rp 20.000 / 500 ml
+  'Pistachio':      250,   // Rp 75.000 / 300 ml
+  'Matcha':        250,   // Rp 125.000 / 50 gr
+  'V60':           200,   // Rp 100.000 / 50 gr
+  'Soda':          3500,   // Rp 3.500 / pcs
+  'Mix Berry':      180,   // Rp 54.000 / 300 ml
+  'Lemon':          100,   // Rp 30.000 / 300 ml
+  'Jeruk nipis':   1500,   // Rp 1.500 / pcs
+};
+
+// Nilai Aset = Σ (Stok Tersisa × Harga per Satuan)
+function calcAssetValue(){
+  const inv=getInv();
+  return INVENTORY_DEF.reduce((sum,item)=>{
+    const stock=inv[item.name]??0;           // stok tersisa
+    const hargaSatuan=UNIT_PRICES[item.name]??0; // Rp per gr/ml/pcs
+    return sum+(stock*hargaSatuan);          // nilai bahan ini
+  },0);
+}
+
+// ══ STORAGE ══
+function initStorage(){
+  if(!ls('nc_inv')){const d={};INVENTORY_DEF.forEach(i=>d[i.name]=i.init);sv('nc_inv',d);}
+  if(!ls('nc_restock'))sv('nc_restock',[]);
+  if(!ls('nc_sales'))sv('nc_sales',[]);
+}
+function sv(k,v){localStorage.setItem(k,JSON.stringify(v));}
+function ls(k){return JSON.parse(localStorage.getItem(k)||'null');}
+function getInv()    {return ls('nc_inv')||{};}
+function getRestock(){return ls('nc_restock')||[];}
+function getSales()  {return ls('nc_sales')||[];}
+
+// ══ LOGIN ══
+let role='barista',tab='',selRole='barista';
+function selectRole(r){
+  selRole=r;
+  document.getElementById('rc-barista').classList.toggle('selected',r==='barista');
+  document.getElementById('rc-owner').classList.toggle('selected',r==='owner');
+}
+function attemptLogin(){
+  const pin=document.getElementById('pin-input').value.trim();
+  if(pin===PINS[selRole]){
+    role=selRole;
+    document.getElementById('login-page').style.display='none';
+    const app=document.getElementById('app');
+    app.style.display='flex';app.style.flexDirection='column';
+    setupApp();
+  } else {
+    document.getElementById('pin-error').style.display='block';
+    document.getElementById('pin-input').value='';
+  }
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const lp=document.getElementById('login-page');
+    if(lp&&lp.style.display!=='none')attemptLogin();
+  }
+});
+function logout(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='grid';
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').style.display='none';
+}
+
+// ══ APP SETUP ══
+function setupApp(){
+  document.getElementById('pill-icon').textContent=role==='owner'?'◎':'☕';
+  document.getElementById('pill-label').textContent=role==='owner'?'Owner':'Barista';
+  document.getElementById('role-pill').className='role-pill'+(role==='owner'?' owner-pill':'');
+  const tabs=role==='barista'
+    ?[['input','Input Stok'],['restock','Restock'],['stok','Lihat Stok']]
+    :[['dashboard','Dashboard'],['inventory','Inventory'],['forecast','Forecast']];
+  const startTab=tabs[0][0];
+  document.getElementById('nav-tabs').innerHTML=tabs.map(([id,label])=>
+    '<button class="nav-link'+(id===startTab?' active':'')+'" onclick="switchTab(\''+id+'\')">'+label+'</button>'
+  ).join('');
+  tab=startTab;render();
+}
+function switchTab(t){
+  tab=t;
+  document.querySelectorAll('.nav-link').forEach(el=>{
+    el.classList.toggle('active',el.getAttribute('onclick').includes("'"+t+"'"));
+  });
+  render();
+}
+
+// ══ RENDER DISPATCH ══
+function render(){
+  const el=document.getElementById('main-content');
+  const map={
+    input:renderInput, restock:renderRestock, stok:renderStok,
+    dashboard:renderDashboard, inventory:renderInventory, forecast:renderForecast
+  };
+  if(map[tab])el.innerHTML=map[tab]();
+}
+
+// ══ HELPERS ══
+function itemDef(name){return INVENTORY_DEF.find(i=>i.name===name);}
+function stockStatus(name){
+  const inv=getInv(),stock=inv[name]??0,def=itemDef(name);
+  if(!def)return'ok';
+  if(def.ropLabel==='Warning')return stock<=0?'danger':'warn';
+  if(def.ropLabel==='Aman')return'ok';
+  if(!def.rop)return'ok';
+  if(stock<def.rop)return'danger';
+  if(stock<def.rop*1.25)return'warn';
+  return'ok';
+}
+function statusPill(name){
+  const s=stockStatus(name);
+  const m={ok:['s-ok','dot-ok','Aman'],warn:['s-warn','dot-warn','Perhatian'],danger:['s-danger','dot-danger','Kritis']};
+  const[cls,dcls,label]=m[s];
+  return '<span class="status-pill '+cls+'"><span class="dot '+dcls+'"></span>'+label+'</span>';
+}
+function stockBar(name){
+  const inv=getInv(),def=itemDef(name),stock=inv[name]??0;
+  if(!def||!def.rop)return'';
+  const pct=Math.min(100,(stock/(def.rop*2))*100);
+  const s=stockStatus(name);
+  const color=s==='danger'?'var(--danger)':s==='warn'?'var(--warn)':'var(--green)';
+  return '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+color+';"></div></div>';
+}
+function today(){return new Date().toISOString().split('T')[0];}
+function fmt(n){return n.toLocaleString('id-ID');}
+function fmtNum(n){return n%1===0?n:n.toFixed(1);}
+
+// ══ BARISTA: INPUT STOK ══
+function renderInput(){
+  const inv=getInv();
+  const redItems=INVENTORY_DEF.filter(i=>stockStatus(i.name)==='danger');
+  let alert='';
+  if(redItems.length)alert='<div class="alert-strip alert-danger"><div><div class="alert-label" style="color:var(--danger);">Stok Kritis — Segera Restock</div><div class="alert-body">'+redItems.map(i=>i.name).join(' · ')+'</div></div></div>';
+  const cards=INVENTORY_DEF.map(item=>{
+    const stock=inv[item.name]??0;
+    const s=stockStatus(item.name);
+    const dc=s==='danger'?'dot-danger':s==='warn'?'dot-warn':'dot-ok';
+    const id='in-'+item.name.replace(/\s+/g,'_');
+    return '<div class="input-card">'+
+      '<div class="input-card-name">'+item.name+'<span class="dot '+dc+'" style="width:8px;height:8px;"></span></div>'+
+      '<div class="input-card-stock">Sisa: <strong>'+fmtNum(stock)+'</strong> '+item.unit+'</div>'+
+      '<div class="input-row">'+
+        '<input type="number" class="qty-input" id="'+id+'" placeholder="0" min="0" step="0.5" onkeydown="if(event.key===\'Enter\')deductItem(\''+item.name+'\',\''+item.unit+'\')">'+
+        '<span class="unit-label">'+item.unit+'</span>'+
+        '<button class="deduct-btn" onclick="deductItem(\''+item.name+'\',\''+item.unit+'\')">− Kurangi</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div class="page-header"><div class="page-title">Input Stok.</div><div class="page-subtitle">Kurangi stok bahan baku secara manual</div></div>'+alert+'<div class="input-grid">'+cards+'</div>';
+}
+function deductItem(name,unit){
+  const el=document.getElementById('in-'+name.replace(/\s+/g,'_'));
+  const val=parseFloat(el.value);
+  if(!val||val<=0){toast('Masukkan jumlah yang valid','wrn');return;}
+  const inv=getInv();const cur=inv[name]??0;
+  if(val>cur){toast('Stok '+name+' tidak cukup (ada '+fmtNum(cur)+' '+unit+')','err');return;}
+  inv[name]=Math.max(0,cur-val);sv('nc_inv',inv);
+  checkInventoryROP();
+  const sales=getSales();
+  sales.push({date:today(),ts:Date.now(),type:'manual',item:name,qty:val,unit});
+  sv('nc_sales',sales);
+  toast('− '+val+' '+unit+' '+name+' dikurangi','ok');
+  el.value='';render();
+}
+
+// ══ BARISTA: RESTOCK ══
+function renderRestock(){
+  const inv=getInv();
+  const rows=INVENTORY_DEF.map(item=>{
+    const stock=inv[item.name]??0;
+    return '<div class="restock-trigger">'+
+      '<div>'+
+        '<div class="restock-name" style="display:flex;align-items:center;gap:10px;">'+item.name+' '+statusPill(item.name)+'</div>'+
+        '<div class="restock-stock">Stok saat ini: '+fmtNum(stock)+' '+item.unit+'</div>'+
+      '</div>'+
+      '<button class="btn-sm" onclick="openRestockModal(\''+item.name+'\',\''+item.unit+'\')">+ Restock</button>'+
+    '</div>';
+  }).join('');
+  return '<div class="page-header"><div class="page-title">Restock.</div><div class="page-subtitle">Tambah stok bahan baku masuk</div></div>'+rows;
+}
+function openRestockModal(name,unit){
+  document.getElementById('modal-inner').innerHTML=
+    '<div class="modal-title">Restock '+name+'</div>'+
+    '<label class="form-label">Jumlah Masuk ('+unit+')</label>'+
+    '<input type="number" class="form-input" id="m-qty" placeholder="misal: 500" min="0" step="0.1" autofocus>'+
+    '<label class="form-label">Harga Beli Total (Rp)</label>'+
+    '<input type="text" class="form-input" id="m-price-display" placeholder="Rp 0" inputmode="numeric" oninput="formatPriceInput(this)">'+
+    '<input type="hidden" id="m-price-raw">'+
+    '<label class="form-label">nama supplier</label>'+
+    '<input type="text" class="form-input" id="m-note" placeholder="Supplier, batch, dll">'+
+    '<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Batal</button><button class="btn-full" style="flex:1;" onclick="submitRestock(\''+name+'\',\''+unit+'\')">Simpan</button></div>';
+  showModal();
+}
+function formatPriceInput(el){
+  const raw=el.value.replace(/\D/g,'');
+  document.getElementById('m-price-raw').value=raw;
+  el.value=raw===''?'':new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0,maximumFractionDigits:0}).format(parseInt(raw||'0',10));
+}
+function submitRestock(name,unit){
+  const qty=parseFloat(document.getElementById('m-qty').value);
+  const priceRaw=document.getElementById('m-price-raw').value;
+  const price=priceRaw?parseInt(priceRaw,10):0;
+  const note=document.getElementById('m-note').value.trim();
+  if(!qty||qty<=0){toast('Masukkan jumlah yang valid','wrn');return;}
+  const inv=getInv();inv[name]=(inv[name]??0)+qty;sv('nc_inv',inv);
+  checkInventoryROP();
+  const rs=getRestock();
+  rs.push({date:today(),ts:Date.now(),item:name,unit,qty,price,note});
+  sv('nc_restock',rs);
+  const priceStr=price>0?new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(price):'';
+  toast('+ '+qty+' '+unit+' '+name+(priceStr?' · '+priceStr:''),'ok');
+  closeModal();render();
+}
+
+// ══ BARISTA: LIHAT STOK ══
+function renderStok(){
+  const inv=getInv();
+  const redItems=INVENTORY_DEF.filter(i=>stockStatus(i.name)==='danger');
+  const warnItems=INVENTORY_DEF.filter(i=>stockStatus(i.name)==='warn');
+  let alerts='';
+  if(redItems.length)alerts+='<div class="alert-strip alert-danger"><div><div class="alert-label" style="color:var(--danger);">Stok Kritis</div><div class="alert-body">'+redItems.map(i=>i.name).join(' · ')+'</div></div></div>';
+  if(warnItems.length)alerts+='<div class="alert-strip alert-warn"><div><div class="alert-label" style="color:var(--warn);">Mendekati ROP</div><div class="alert-body">'+warnItems.map(i=>i.name).join(' · ')+'</div></div></div>';
+  const rows=INVENTORY_DEF.map(item=>{
+    const stock=inv[item.name]??0;
+    const rop=item.ropLabel||(item.rop?item.rop+' '+item.unit:'—');
+    return '<tr><td><div class="item-name">'+item.name+'</div></td>'+
+      '<td><strong>'+fmtNum(stock)+'</strong> <span style="color:var(--mist);font-size:12px;">'+item.unit+'</span>'+stockBar(item.name)+'</td>'+
+      '<td style="color:var(--mist);font-size:13px;">'+rop+'</td>'+
+      '<td>'+statusPill(item.name)+'</td></tr>';
+  }).join('');
+  return '<div class="page-header"><div class="page-title">Status Stok.</div><div class="page-subtitle">Real-time inventory bahan baku</div></div>'+alerts+
+    '<table class="data-table"><thead><tr><th>Bahan</th><th>Stok</th><th>ROP</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+// ══ OWNER: DASHBOARD ══
+// ══ OWNER: DASHBOARD ══
+function fmtRp(n){
+  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0,maximumFractionDigits:0}).format(n||0);
+}
+function renderDashboard(){
+  const inv=getInv(),sales=getSales(),restock=getRestock();
+  const todaySales=sales.filter(s=>s.date===today());
+  const redCount=INVENTORY_DEF.filter(i=>stockStatus(i.name)==='danger').length;
+  const warnCount=INVENTORY_DEF.filter(i=>stockStatus(i.name)==='warn').length;
+
+  // Nilai aset = Σ (stok × harga per satuan)
+  const assetVal=calcAssetValue();
+  const totalSpend=restock.reduce((s,r)=>s+(r.price||0),0);
+  const recent=[...restock].sort((a,b)=>b.ts-a.ts).slice(0,8);
+
+  // Breakdown top kontributor nilai aset
+  const assetRows=INVENTORY_DEF.map(item=>{
+    const stock=inv[item.name]??0;
+    const hargaSatuan=UNIT_PRICES[item.name]??0;
+    const val=stock*hargaSatuan;
+    return{name:item.name,unit:item.unit,val,stock,hargaSatuan};
+  }).filter(r=>r.val>0).sort((a,b)=>b.val-a.val).slice(0,6);
+
+  return '<div class="page-header"><div class="page-title">Dashboard.</div><div class="page-subtitle">'+new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'+
+    '<div class="stat-strip" style="grid-template-columns:repeat(5,1fr);">'+
+    '<div class="stat-cell"><div class="stat-label">Nilai Aset Stok</div>'+
+      '<div class="stat-value green" style="font-size:20px;">'+fmtRp(assetVal)+'</div>'+
+      '<div class="stat-note">Σ stok × harga satuan</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Total Pengeluaran</div>'+
+      '<div class="stat-value" style="font-size:20px;">'+fmtRp(totalSpend)+'</div>'+
+      '<div class="stat-note">Semua restock tercatat</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Stok Kritis</div><div class="stat-value danger">'+redCount+'</div><div class="stat-note">Bahan di bawah ROP</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Perhatian</div><div class="stat-value warn">'+warnCount+'</div><div class="stat-note">Mendekati ROP</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Aktivitas Hari Ini</div><div class="stat-value green">'+todaySales.length+'</div><div class="stat-note">Input stok hari ini</div></div>'+
+    '</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">'+
+    '<div><div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin-bottom:16px;">Komposisi Nilai Aset</div>'+
+    (assetRows.length?assetRows.map(r=>
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">'+
+      '<div><div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:700;">'+r.name+'</div>'+
+      '<div style="font-size:11px;color:var(--mist);">'+fmtNum(r.stock)+' '+r.unit+' × '+fmtRp(r.hargaSatuan)+'/'+r.unit+'</div></div>'+
+      '<div style="text-align:right;"><div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:700;">'+fmtRp(r.val)+'</div>'+
+      '<div style="font-size:10px;color:var(--mist);">'+((r.val/assetVal)*100).toFixed(1)+'%</div></div>'+
+      '</div>').join('')
+    :'<div class="empty-state" style="padding:40px 0;"><div class="empty-title" style="font-size:15px;">Semua stok kosong</div></div>')+
+    '</div>'+
+    '<div><div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin-bottom:16px;">Riwayat Restock Terakhir</div>'+
+    (recent.length?recent.map(r=>
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">'+
+      '<div><div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:700;">'+r.item+'</div>'+
+      '<div style="font-size:11px;color:var(--mist);">'+r.date+' · +'+fmtNum(r.qty)+' '+r.unit+(r.note?' · '+r.note:'')+'</div></div>'+
+      '<div style="text-align:right;">'+(r.price?'<div style="font-size:13px;font-weight:600;color:var(--danger);">'+fmtRp(r.price)+'</div>':'<div style="font-size:12px;color:var(--mist);">—</div>')+'</div></div>').join('')
+    :'<div class="empty-state" style="padding:40px 0;"><div class="empty-title" style="font-size:15px;">Belum ada aktivitas</div></div>')+
+    '</div></div>';
+}
+
+// ══ OWNER: INVENTORY ══
+function renderInventory(){
+  const inv=getInv();
+  const rows=INVENTORY_DEF.map(item=>{
+    const stock=inv[item.name]??0;
+    const rop=item.ropLabel||(item.rop?item.rop+' '+item.unit:'—');
+    const hargaSatuan=UNIT_PRICES[item.name]??0;
+    const nilaiAset=stock*hargaSatuan; // Stok Tersisa × Harga per Satuan
+    return '<tr><td><div class="item-name">'+item.name+'</div><div class="item-unit">'+item.unit+'</div></td>'+
+      '<td><div style="font-family:\'Playfair Display\',serif;font-weight:900;font-size:18px;">'+fmtNum(stock)+'</div>'+stockBar(item.name)+'</td>'+
+      '<td style="font-size:13px;color:var(--mist);">'+rop+'</td>'+
+      '<td>'+statusPill(item.name)+'</td>'+
+      '<td><div style="font-family:\'Playfair Display\',serif;font-size:14px;font-weight:700;">'+(nilaiAset>0?fmtRp(nilaiAset):'—')+'</div>'+
+        (nilaiAset>0?'<div style="font-size:10px;color:var(--mist);">'+fmtNum(stock)+' × '+fmtRp(hargaSatuan)+'</div>':'')+
+      '</td></tr>';
+  }).join('');
+  const totalAsset=calcAssetValue();
+  return '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:36px;">'+
+    '<div><div class="page-title">Inventory.</div>'+
+    '<div class="page-subtitle">Stok bahan baku real-time &nbsp;·&nbsp; <strong>Nilai Aset Total: '+fmtRp(totalAsset)+'</strong></div></div>'+
+    '<div style="display:flex;gap:10px;"><button class="btn-ghost" onclick="exportCSV()">⬇ Export CSV</button><button class="btn-ghost" style="border-color:var(--danger);color:var(--danger);" onclick="openResetModal()">↺ Reset</button></div>'+
+    '</div>'+
+    '<table class="data-table"><thead><tr><th>Bahan</th><th>Stok</th><th>ROP</th><th>Status</th><th>Nilai Aset</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function openResetModal(){
+  document.getElementById('modal-inner').innerHTML=
+    '<div style="text-align:center;"><div style="font-size:48px;margin-bottom:16px;">⚠</div>'+
+    '<div class="modal-title" style="text-align:center;">Reset Semua Data?</div>'+
+    '<p style="color:var(--mist);font-size:14px;margin-bottom:28px;line-height:1.6;">Semua data inventory, restock & aktivitas dihapus permanen. Tindakan ini <strong>tidak dapat dibatalkan</strong>.</p>'+
+    '<div class="modal-actions"><button class="btn-ghost" style="flex:1;" onclick="closeModal()">Batal</button><button class="btn-full danger" style="flex:1;" onclick="doReset()">Ya, Reset</button></div></div>';
+  showModal();
+}
+function doReset(){
+  const d={};INVENTORY_DEF.forEach(i=>d[i.name]=0);
+  sv('nc_inv',d);sv('nc_restock',[]);sv('nc_sales',[]);
+  closeModal();
+  toast('Data direset. Memuat ulang halaman…','ok');
+  setTimeout(()=>location.reload(),1200);
+}
+
+// ══ OWNER: FORECAST ══
+function renderForecast(){
+  const sales=getSales(), inv=getInv();
+
+  // Build 7-day usage map
+  const days7=Array.from({length:7},(_,i)=>{
+    const d=new Date();d.setDate(d.getDate()-i);
+    return d.toISOString().split('T')[0];
+  });
+  const usage={};
+  sales.filter(s=>s.type==='manual'&&days7.includes(s.date)).forEach(s=>{
+    if(!usage[s.item])usage[s.item]={};
+    usage[s.item][s.date]=(usage[s.item][s.date]||0)+s.qty;
+  });
+
+  // ── PANEL 1: Consumption Rate ──
+  const totalUsage=Object.entries(usage).map(([name,dmap])=>{
+    const total=Object.values(dmap).reduce((a,b)=>a+b,0);
+    const def=itemDef(name);
+    const active=Object.keys(dmap).length;
+    return{name,total,unit:def?def.unit:'',active,avgDay:total/7};
+  }).filter(i=>i.total>0).sort((a,b)=>b.total-a.total);
+
+  const maxU=totalUsage.length?totalUsage[0].total:1;
+  const consumptionHTML=totalUsage.slice(0,10).map((item,i)=>{
+    const pct=Math.min(100,(item.total/maxU)*100);
+    const barColor=i===0?'var(--ink)':i<=2?'var(--ink2)':'var(--mist)';
+    return '<div class="consumption-item">'+
+      '<div class="consumption-bar-label">'+
+        '<span class="consumption-name">'+item.name+'</span>'+
+        '<span class="consumption-val">'+item.total.toFixed(1)+' '+item.unit+' · avg '+item.avgDay.toFixed(1)+'/hari</span>'+
+      '</div>'+
+      '<div class="consumption-bar-track"><div class="consumption-bar-fill" style="width:'+pct+'%;background:'+barColor+';"></div></div>'+
+    '</div>';
+  }).join('');
+
+  // ── PANEL 2: Days of Stock Remaining — PER MENU ──
+  const menuAnalysis=Object.entries(RECIPES).map(([menuName,recipe])=>{
+    let maxPortions=Infinity;
+    let limitIng=null;
+
+    Object.entries(recipe).forEach(([ing,amt])=>{
+      const stock=inv[ing]??0;
+      const possible=amt>0?Math.floor(stock/amt):Infinity;
+      if(possible<maxPortions){maxPortions=possible;limitIng=ing;}
+    });
+    if(maxPortions===Infinity)maxPortions=0;
+
+    // Days until limiting ingredient depletes (based on avg daily usage)
+    const limStock=limitIng?(inv[limitIng]??0):0;
+    const limAvgDay=limitIng&&usage[limitIng]
+      ?Object.values(usage[limitIng]).reduce((a,b)=>a+b,0)/7
+      :0;
+    const daysLeft=limAvgDay>0?limStock/limAvgDay:Infinity;
+
+    // Per-ingredient portion calc for detail modal
+    const ingCalc=Object.entries(recipe).map(([ing,amt])=>{
+      const stock=inv[ing]??0;
+      const portions=amt>0?Math.floor(stock/amt):9999;
+      const def=itemDef(ing);
+      const unit=def?def.unit:'';
+      const avgD=usage[ing]?Object.values(usage[ing]).reduce((a,b)=>a+b,0)/7:0;
+      return{ing,amt,stock,portions,unit,isBottleneck:ing===limitIng,avgD};
+    });
+
+    return{menuName,maxPortions,limitIng,limStock,limAvgDay,daysLeft,ingCalc};
+  }).sort((a,b)=>{
+    if(a.maxPortions===0&&b.maxPortions!==0)return-1;
+    if(b.maxPortions===0&&a.maxPortions!==0)return 1;
+    const da=a.daysLeft===Infinity?9999:a.daysLeft;
+    const db=b.daysLeft===Infinity?9999:b.daysLeft;
+    if(da!==db)return da-db;
+    return a.maxPortions-b.maxPortions;
+  });
+
+  const menuGaugeHTML=menuAnalysis.map(m=>{
+    let color,label,pct,sublabel;
+    const d=m.daysLeft;
+    if(m.maxPortions===0){
+      color='var(--danger)';label='Tidak bisa dibuat';pct=0;sublabel='Stok habis';
+    } else if(d===Infinity){
+      color='var(--green)';label=m.maxPortions+' porsi';pct=100;sublabel='Data pemakaian belum ada';
+    } else if(d<1){
+      color='var(--danger)';label='< 1 hari';pct=3;sublabel=m.maxPortions+' porsi tersisa';
+    } else if(d<3){
+      color='var(--danger)';label='~'+d.toFixed(1)+' hari';pct=Math.min(95,d/14*100);sublabel=m.maxPortions+' porsi tersisa';
+    } else if(d<7){
+      color='var(--warn)';label='~'+d.toFixed(1)+' hari';pct=Math.min(95,d/14*100);sublabel=m.maxPortions+' porsi tersisa';
+    } else {
+      color='var(--green)';label='~'+Math.floor(d)+' hari';pct=Math.min(95,d/14*100);sublabel=m.maxPortions+' porsi tersisa';
+    }
+    const enc=encodeURIComponent(JSON.stringify(m));
+    return '<div class="menu-gauge-item" onclick="showMenuDetail(\''+enc+'\')">'+
+      '<div class="mgauge-top">'+
+        '<div><div class="mgauge-name">'+m.menuName+'</div>'+
+        (m.limitIng?'<div class="mgauge-sub">Bottleneck: '+m.limitIng+'</div>':'')+'</div>'+
+        '<div><div class="mgauge-label" style="color:'+color+';">'+label+'</div>'+
+        '<div class="mgauge-sub">'+sublabel+'</div></div>'+
+      '</div>'+
+      '<div class="mgauge-bar-track"><div class="mgauge-bar-fill" style="width:'+pct+'%;background:'+color+';"></div></div>'+
+    '</div>';
+  }).join('');
+
+  const empty='<div class="empty-state"><div class="empty-title">Belum ada data pemakaian</div><div class="empty-text">Mulai input pengurangan stok di tab Input Stok.</div></div>';
+
+  return '<div class="page-header"><div class="page-title">Forecast.</div>'+
+    '<div class="page-subtitle">Analisis stok & pemakaian 7 hari terakhir · Tap menu untuk detail kalkulasi</div></div>'+
+    '<div class="forecast-grid">'+
+      '<div class="forecast-card">'+
+        '<div class="fc-title">Consumption Rate <span style="font-size:10px;background:var(--cream);padding:3px 8px;border-radius:100px;">7 hari</span></div>'+
+        (consumptionHTML||empty)+
+      '</div>'+
+      '<div class="forecast-card">'+
+        '<div class="fc-title">Days of Stock Remaining — Per Menu</div>'+
+        '<div class="menu-gauge-list">'+menuGaugeHTML+'</div>'+
+      '</div>'+
+    '</div>';
+}
+
+// ── MENU DETAIL MODAL dengan math lengkap ──
+function showMenuDetail(enc){
+  const m=JSON.parse(decodeURIComponent(enc));
+  const inv=getInv();
+
+  // Rebuild ingCalc fresh from current inv (enc might be stale)
+  const recipe=RECIPES[m.menuName]||{};
+  let minPortion=Infinity, bottleneckIng=null;
+  Object.entries(recipe).forEach(([ing,amt])=>{
+    const stock=inv[ing]??0;
+    const p=amt>0?Math.floor(stock/amt):9999;
+    if(p<minPortion){minPortion=p;bottleneckIng=ing;}
+  });
+  if(minPortion===Infinity)minPortion=0;
+
+  // Ingredient rows
+  const ingRows=Object.entries(recipe).map(([ing,amt])=>{
+    const stock=inv[ing]??0;
+    const portions=amt>0?Math.floor(stock/amt):999;
+    const def=itemDef(ing);
+    const unit=def?def.unit:'';
+    const isB=ing===bottleneckIng;
+    return '<div class="math-row'+(isB?' bottleneck':'')+'">'+
+      '<div style="font-size:13px;'+(isB?'font-weight:700;color:var(--danger);':'')+'">'+
+        (isB?'⚠ ':'')+ing+
+      '</div>'+
+      '<div style="text-align:right;font-size:12px;color:var(--mist);">'+
+        fmtNum(stock)+' '+unit+' ÷ '+amt+' '+unit+'/porsi = <strong style="color:'+(isB?'var(--danger)':'var(--ink)')+';">'+portions+' porsi</strong>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  // Days formula
+  let daysHTML='<div style="font-size:12px;color:var(--mist);background:var(--cream);padding:12px;border-radius:4px;margin-top:12px;">Belum ada data historis pemakaian. Catat pengurangan stok agar prediksi hari tersedia.</div>';
+
+  if(m.limAvgDay>0 && bottleneckIng){
+    const limStock=inv[bottleneckIng]??0;
+    const def=itemDef(bottleneckIng);
+    const unit=def?def.unit:'';
+    const days=(limStock/m.limAvgDay);
+    daysHTML='<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin:16px 0 8px;">Prediksi Ketahanan (Berdasarkan '+bottleneckIng+')</div>'+
+      '<div class="math-formula">'+
+        'Stok '+bottleneckIng+' saat ini = '+fmtNum(limStock)+' '+unit+'<br>'+
+        'Avg pemakaian harian (7 hari) = '+m.limAvgDay.toFixed(2)+' '+unit+'/hari<br>'+
+        '─────────────────────────────────<br>'+
+        fmtNum(limStock)+' ÷ '+m.limAvgDay.toFixed(2)+' = <strong>'+days.toFixed(1)+' hari</strong>'+
+        (minPortion>0?'<br><br>Pada laju ini, menu ini bisa dibuat ±<strong>'+Math.floor(days * (m.limAvgDay / (recipe[bottleneckIng]||1)))+' porsi</strong> lagi sebelum stok habis':'')
+      +'</div>';
+  }
+
+  document.getElementById('modal-inner').innerHTML=
+    '<div class="modal-title">'+m.menuName+'</div>'+
+    '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist);margin-bottom:12px;">Kalkulasi Porsi per Bahan</div>'+
+    '<div style="background:var(--cream);border-radius:4px;padding:12px 16px;margin-bottom:4px;">'+ingRows+'</div>'+
+    '<div style="background:var(--ink);color:var(--paper);border-radius:4px;padding:16px 20px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;">'+
+      '<div><div style="font-size:11px;opacity:0.5;letter-spacing:1px;margin-bottom:4px;">TOTAL PORSI TERSISA</div>'+
+      '<div style="font-family:\'Playfair Display\',serif;font-size:28px;font-weight:900;">'+minPortion+'<span style="font-size:14px;font-weight:400;opacity:0.6;margin-left:4px;">porsi</span></div></div>'+
+      (bottleneckIng?'<div style="text-align:right;font-size:12px;opacity:0.6;">Dibatasi oleh<br><strong>'+bottleneckIng+'</strong></div>':'')+
+    '</div>'+
+    daysHTML+
+    '<div class="modal-actions" style="margin-top:20px;"><button class="btn-full" onclick="closeModal()">Tutup</button></div>';
+
+  showModal();
+}
+
+// ══ EXPORT CSV (REVISED) ══
+function exportCSV(){
+  const inv=getInv(), restock=getRestock(), sales=getSales();
+  
+  // Menambahkan 'sep=;' di awal agar Excel otomatis tahu pemisah kolomnya adalah titik koma
+  let csv = 'sep=;\n'; 
+  csv += 'NIRMALA COFFEE DATA EXPORT;\n';
+  csv += 'Diekspor: ' + new Date().toLocaleString('id-ID') + ';\n\n';
+  
+  // === INVENTORY & VALUASI ASET ===
+  csv += '=== INVENTORY & VALUASI ASET ===;;;;;;\n';
+  csv += 'Bahan;Stok;Satuan;ROP;Status;Harga Satuan (Rp);Nilai Aset (Rp)\n';
+  
+  INVENTORY_DEF.forEach(i => {
+    const stock = inv[i.name] ?? 0;
+    const hp = UNIT_PRICES[i.name] ?? 0;
+    
+    // Menggunakan titik koma (;) dan membungkus string dengan kutip ganda jika ada koma/spasi
+    csv += '"' + i.name + '";' + 
+           stock + ';' + 
+           '"' + i.unit + '";' + 
+           '"' + (i.ropLabel || i.rop || '—') + '";' + 
+           '"' + stockStatus(i.name) + '";' + 
+           hp + ';' + 
+           (stock * hp).toFixed(0) + '\n';
+  });
+  
+  csv += '\nTotal Nilai Aset (Rp);' + calcAssetValue().toFixed(0) + ';;;;;\n\n';
+  
+  // === RESTOCK LOG ===
+  csv += '=== RESTOCK LOG ===;;;;;\n';
+  csv += 'Tanggal;Bahan;Qty;Satuan;Harga Beli (Rp);Catatan\n';
+  restock.forEach(r => {
+    csv += '"' + r.date + '";"' + r.item + '";' + r.qty + ';"' + r.unit + '";' + (r.price || 0) + ';"' + (r.note || '') + '"\n';
+  });
+  
+  csv += '\n=== AKTIVITAS STOK ===;;;\n';
+  csv += 'Tanggal;Bahan;Qty;Satuan\n';
+  sales.forEach(s => {
+    csv += '"' + s.date + '";"' + (s.item || '') + '";' + (s.qty || '') + ';"' + (s.unit || '') + '"\n';
+  });
+  
+  // Tambahkan BOM (Byte Order Mark) UTF-8 agar karakter spesial/aksen terbaca dengan sempurna di Excel
+  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
+  
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nirmala-' + today() + '.csv';
+  a.click();
+  toast('CSV berhasil diexport', 'ok');
+}
+
+// ══ MODAL ══
+function showModal(){document.getElementById('modal-overlay').classList.remove('hidden');}
+function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');}
+function handleOverlayClick(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
+
+// ══ TOAST ══
+function toast(msg,type='ok'){
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.innerHTML='<span>'+(type==='ok'?'✓':type==='err'?'✕':'!')+'</span><span>'+msg+'</span>';
+  document.getElementById('toaster').appendChild(el);
+  setTimeout(()=>{el.style.transition='all 0.3s';el.style.opacity='0';el.style.transform='translateX(12px)';},2800);
+  setTimeout(()=>el.remove(),3100);
+}
+
+initStorage();
+
+// ══ EMAIL NOTIFIKASI ROP ══
+const BREVO_API_KEY = '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';
+
+const EMAIL_SENDER = {
+  name:  'Nirmala Coffee — Sistem Inventaris',
+  email: 'coffeenirmala@gmail.com',
+};
+const ALERT_RECIPIENTS = [
+  { name: 'bimo',              email: 'putrotamtomo6050@gmail.com' },
+  { name: 'adyt',              email: 'wiryatejaadyatma@gmail.com' },
+  { name: 'rafa',              email: 'rafasasikirana@gmail.com' },
+  { name: 'albert',            email: 'albertustegar0@gmail.com' },
+  { name: 'ello',              email: 'jensonello77@gmail.com' },
+  { name: 'gendut',            email: 'lungidanthaky@gmail.com' },
+];
+
+const ROP_LOCK_KEY = 'nc_rop_lock';
+
+function getRopLock() {
+  return JSON.parse(localStorage.getItem(ROP_LOCK_KEY) || '{}');
+}
+function setRopLock(lockObj) {
+  localStorage.setItem(ROP_LOCK_KEY, JSON.stringify(lockObj));
+}
+
+/**
+ * Cek apakah item tertentu sedang dalam status lock (email sudah pernah dikirim).
+ * @param {string} itemName - Nama bahan baku (sesuai key di INVENTORY_DEF)
+ * @returns {boolean}
+ */
+function isLocked(itemName) {
+  return getRopLock()[itemName] === true;
+}
+
+/**
+ * Aktifkan lock untuk item tertentu setelah email berhasil dikirim.
+ * Lock ini mencegah pengiriman email berulang selama stok masih di bawah ROP.
+ * @param {string} itemName
+ */
+function activateLock(itemName) {
+  const lock = getRopLock();
+  lock[itemName] = true;
+  setRopLock(lock);
+}
+
+/**
+ * Reset lock untuk item tertentu.
+ * Dipanggil otomatis saat stok item di-restock melebihi nilai ROP.
+ * Setelah reset, sistem boleh mengirim email kembali jika stok turun lagi.
+ * @param {string} itemName
+ */
+function releaseLock(itemName) {
+  const lock = getRopLock();
+  if (lock[itemName]) {
+    delete lock[itemName];
+    setRopLock(lock);
+    console.log(`[ROP Lock] Lock dilepas untuk: ${itemName}`);
+  }
+}
+
+
+/**
+ * Generate HTML body email yang profesional dan informatif.
+ * @param {string} itemName  - Nama bahan baku yang kritis
+ * @param {number} stock     - Stok aktual saat ini
+ * @param {string} unit      - Satuan (gr, ml, pcs, dll)
+ * @param {number} rop       - Nilai Reorder Point bahan tersebut
+ * @returns {string} HTML string untuk body email
+ */
+function buildEmailHtml(itemName, stock, unit, rop) {
+  const now = new Date().toLocaleString('id-ID', {
+    weekday: 'long', year: 'numeric', month: 'long',
+    day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  // Hitung persentase stok terhadap ROP untuk visual progress bar
+  const pct = rop > 0 ? Math.min(100, Math.round((stock / rop) * 100)) : 0;
+
+  // Warna bar berdasarkan kondisi stok
+  const barColor = stock <= 0 ? '#991b1b' : stock < rop ? '#b85c00' : '#2a5c3f';
+  const statusText = stock <= 0 ? 'HABIS' : 'DI BAWAH ROP';
+  const statusBg   = stock <= 0 ? '#991b1b' : '#b85c00';
+
+  return `
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alert Inventaris — ${itemName}</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ee;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#111110;padding:28px 36px;">
+              <p style="margin:0;color:rgba(255,255,255,0.45);font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;">
+                Nirmala Coffee · Sistem Inventaris
+              </p>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">
+                🔴 Alert Stok Kritis
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Status Badge -->
+          <tr>
+            <td style="padding:28px 36px 0;">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:${statusBg};border-radius:100px;padding:5px 14px;">
+                    <span style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">
+                      ● ${statusText}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Item Name -->
+          <tr>
+            <td style="padding:16px 36px 0;">
+              <h2 style="margin:0;font-size:32px;font-weight:900;color:#111110;letter-spacing:-0.5px;">
+                ${itemName}
+              </h2>
+              <p style="margin:6px 0 0;font-size:13px;color:#8a8a86;">
+                Stok bahan baku ini membutuhkan perhatian segera.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Data Box -->
+          <tr>
+            <td style="padding:24px 36px;">
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background:#f5f3ee;border-radius:4px;overflow:hidden;">
+                <tr>
+                  <!-- Stok Aktual -->
+                  <td width="50%" style="padding:20px 24px;border-right:1px solid #ddddd8;">
+                    <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:2px;
+                               text-transform:uppercase;color:#8a8a86;">
+                      Stok Saat Ini
+                    </p>
+                    <p style="margin:0;font-size:30px;font-weight:900;color:${barColor};
+                               letter-spacing:-0.5px;">
+                      ${stock % 1 === 0 ? stock : stock.toFixed(1)}
+                      <span style="font-size:14px;font-weight:400;color:#8a8a86;">
+                        &nbsp;${unit}
+                      </span>
+                    </p>
+                  </td>
+                  <!-- ROP -->
+                  <td width="50%" style="padding:20px 24px;">
+                    <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:2px;
+                               text-transform:uppercase;color:#8a8a86;">
+                      Reorder Point (ROP)
+                    </p>
+                    <p style="margin:0;font-size:30px;font-weight:900;color:#111110;
+                               letter-spacing:-0.5px;">
+                      ${rop}
+                      <span style="font-size:14px;font-weight:400;color:#8a8a86;">
+                        &nbsp;${unit}
+                      </span>
+                    </p>
+                  </td>
+                </tr>
+                <!-- Progress Bar -->
+                <tr>
+                  <td colspan="2" style="padding:0 24px 20px;">
+                    <p style="margin:0 0 6px;font-size:10px;font-weight:600;
+                               color:#8a8a86;letter-spacing:0.5px;">
+                      Level stok: ${pct}% dari ROP
+                    </p>
+                    <div style="background:#ddddd8;border-radius:4px;height:6px;overflow:hidden;">
+                      <div style="width:${pct}%;height:100%;background:${barColor};
+                                  border-radius:4px;"></div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Call to Action -->
+          <tr>
+            <td style="padding:0 36px 28px;">
+              <p style="margin:0;font-size:13px;color:#3a3a38;line-height:1.7;">
+                Segera lakukan pemesanan ulang bahan baku <strong>${itemName}</strong> kepada supplier.
+                Stok yang mencapai atau melewati ROP mengindikasikan risiko kehabisan bahan
+                sebelum pengiriman berikutnya tiba.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#f5f3ee;padding:20px 36px;border-top:1px solid #ddddd8;">
+              <p style="margin:0;font-size:11px;color:#8a8a86;line-height:1.6;">
+                Email ini dikirim otomatis oleh sistem inventaris Nirmala Coffee
+                pada <strong>${now}</strong>.<br>
+                Notifikasi berikutnya untuk bahan ini hanya akan terkirim setelah
+                stok di-restock melewati batas ROP.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim();
+}
+
+
+// ── [5] FUNGSI PENGIRIMAN EMAIL ─────────────────────────────────────────────
+
+/**
+ * Kirim email alert stok kritis ke semua penerima di ALERT_RECIPIENTS
+ * menggunakan Brevo Transactional Email API (v3).
+ *
+ * Fungsi ini bersifat async dan tidak memblokir UI.
+ * Error pengiriman dicatat di console dan toast, tapi tidak melempar exception.
+ *
+ * @param {string} itemName  - Nama bahan yang kritis
+ * @param {number} stock     - Stok aktual saat ini
+ * @param {string} unit      - Satuan (gr, ml, pcs, dll)
+ * @param {number} rop       - Nilai Reorder Point
+ */
+async function sendStockWarningEmail(itemName, stock, unit, rop) {
+  const subject = `[ALERT INVENTARIS] Stok ${itemName} Kritis — Segera Restock!`;
+  const htmlContent = buildEmailHtml(itemName, stock, unit, rop);
+
+  // Format "to" sesuai struktur Brevo API
+  const toList = ALERT_RECIPIENTS.map(r => ({ name: r.name, email: r.email }));
+
+  const payload = {
+    sender:      EMAIL_SENDER,
+    to:          toList,
+    subject:     subject,
+    htmlContent: htmlContent,
+  };
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': BREVO_API_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      // Jika API mengembalikan error, log detailnya
+      const errData = await response.json().catch(() => ({}));
+      console.error('[ROP Alert] Gagal kirim email. Status:', response.status, errData);
+      // Tampilkan toast error jika fungsi toast tersedia di scope global
+      if (typeof toast === 'function') {
+        toast(`Gagal kirim notifikasi email untuk ${itemName}`, 'err');
+      }
+      return false;
+    }
+
+    console.log(`[ROP Alert] ✓ Email terkirim ke ${toList.length} penerima untuk: ${itemName}`);
+    return true;
+
+  } catch (networkError) {
+    // Network error (offline, CORS, dll)
+    console.error('[ROP Alert] Network error saat kirim email:', networkError);
+    return false;
+  }
+}
+
+
+// ── [6] FUNGSI UTAMA: PENGECEKAN ROP + TRIGGER EMAIL ───────────────────────
+
+/**
+ * Periksa semua item inventaris terhadap nilai ROP masing-masing.
+ * Jika stok <= ROP DAN belum pernah dinotifikasi (lock belum aktif),
+ * kirim email alert dan aktifkan lock.
+ *
+ * Fungsi ini juga secara otomatis mereset lock untuk item yang
+ * stoknya sudah kembali di atas ROP (hasil restock).
+ *
+ * ═══════════════════════════════════════════════════════════
+ *  KAPAN MEMANGGIL FUNGSI INI?
+ *  Sisipkan: checkInventoryROP()  TEPAT SETELAH baris:
+ *
+ *    sv('nc_inv', inv);   ← di dalam fungsi deductItem()
+ *
+ *  Contoh posisi di deductItem():
+ *    inv[name] = Math.max(0, cur - val);
+ *    sv('nc_inv', inv);
+ *    checkInventoryROP();   ← ← ← TAMBAHKAN DI SINI
+ *    const sales = getSales();
+ *    ...
+ *
+ *  Opsional: panggil juga di submitRestock() setelah sv('nc_inv', inv)
+ *  agar lock langsung dilepas ketika stok sudah cukup.
+ * ═══════════════════════════════════════════════════════════
+ */
+function checkInventoryROP() {
+  // Ambil data stok terkini dari localStorage
+  const inv = JSON.parse(localStorage.getItem('nc_inv') || '{}');
+
+  // INVENTORY_DEF harus tersedia di scope global (sudah ada di index.html)
+  if (typeof INVENTORY_DEF === 'undefined') {
+    console.warn('[ROP Alert] INVENTORY_DEF tidak ditemukan. Pastikan file ini dimuat setelah index.html.');
+    return;
+  }
+
+  INVENTORY_DEF.forEach(item => {
+    const stock = inv[item.name] ?? 0;
+    const rop   = item.rop;
+
+    // Lewati item yang tidak memiliki nilai ROP numerik
+    if (!rop || typeof rop !== 'number') return;
+
+    if (stock <= rop) {
+      // ── Stok di bawah atau sama dengan ROP ──
+
+      if (!isLocked(item.name)) {
+        // Lock belum aktif → ini PERTAMA KALI stok menyentuh ROP
+        // Kirim email (non-blocking, async) lalu segera aktifkan lock
+        sendStockWarningEmail(item.name, stock, item.unit, rop)
+          .then(success => {
+            if (success) {
+              // Aktifkan lock HANYA jika email berhasil terkirim
+              activateLock(item.name);
+              console.log(`[ROP Alert] Lock diaktifkan untuk: ${item.name}`);
+              if (typeof toast === 'function') {
+                toast(`⚠ Alert email terkirim: ${item.name} kritis!`, 'wrn');
+              }
+            }
+            // Jika gagal: lock TIDAK diaktifkan → sistem akan coba lagi
+            // pada transaksi berikutnya (behavior yang diharapkan)
+          });
+      }
+      // Jika sudah locked → abaikan, email tidak dikirim ulang
+
+    } else {
+      // ── Stok sudah di atas ROP (hasil restock) ──
+      // Reset lock agar alert bisa terkirim lagi jika stok turun kembali
+      releaseLock(item.name);
+    }
+  });
+}
+
+</script>
+</body>
+</html>
