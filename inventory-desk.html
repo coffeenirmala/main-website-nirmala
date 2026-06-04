@@ -571,7 +571,7 @@ function renderDashboard(){
   }).filter(r=>r.val>0).sort((a,b)=>b.val-a.val).slice(0,6);
 
   return '<div class="page-header"><div class="page-title">Dashboard.</div><div class="page-subtitle">'+new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'+
-    '<div class="stat-strip" style="grid-template-columns:repeat(5,1fr);">'+
+    '<div class="stat-strip" id="owner-stat-strip" style="grid-template-columns:repeat(5,1fr);">'
     '<div class="stat-cell"><div class="stat-label">Nilai Aset Stok</div>'+
       '<div class="stat-value green" style="font-size:20px;">'+fmtRp(assetVal)+'</div>'+
       '<div class="stat-note">Σ stok × harga satuan</div></div>'+
