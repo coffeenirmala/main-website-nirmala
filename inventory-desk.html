@@ -414,6 +414,15 @@ async function setupApp(){
 }
 
 // ══ RENDER DISPATCH ══
+function switchTab(newTab){
+  tab=newTab;
+  document.querySelectorAll('.nav-link').forEach(b=>{
+    b.classList.toggle('active',b.textContent.trim()===
+      {input:'Input Stok',restock:'Restock',stok:'Lihat Stok',
+       dashboard:'Dashboard',inventory:'Inventory',forecast:'Forecast'}[newTab]);
+  });
+  render();
+}
 function render(){
   const el=document.getElementById('main-content');
   const map={
