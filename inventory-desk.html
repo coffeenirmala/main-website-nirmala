@@ -275,6 +275,7 @@ document.getElementById('topbar-logo').style.filter = 'brightness(0)';
 const SUPABASE_URL = 'https://ddxwkqfpxtbdfoszfmam.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkeHdrcWZweHRiZGZvc2Z6bWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDI3OTUsImV4cCI6MjA5MDE3ODc5NX0.-X8k78co46tVY4lnFTsfdGTIpJPkWjwmkEAkvpuxmk0';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _inv = null, _restock = null, _sales = null;
 
 // ══ DATA ══
 const PINS = {barista:'1234', owner:'9999'};
@@ -909,8 +910,6 @@ function toast(msg,type='ok'){
   setTimeout(()=>el.remove(),3100);
 }
 
-initStorage();
-
 // ══ EMAIL NOTIFIKASI ROP ══
 const BREVO_API_KEY = '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';
 
@@ -963,7 +962,6 @@ async function releaseLock(itemName) {
   await sb.from('nc_rop_lock').delete().eq('name', itemName);
   if (_ropLock) delete _ropLock[itemName];
   console.log(`[ROP Lock] Lock dilepas untuk: ${itemName}`);
-  }
 }
 
 
