@@ -408,6 +408,7 @@ async function setupApp(){
   tab=startTab;
   toast('Memuat data…','ok');
   await loadAllData();
+  await loadRopLock();
   render();
 }
 
