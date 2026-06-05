@@ -338,11 +338,27 @@ function calcAssetValue(){
   },0);
 }
 
-// ══ STORAGE ══
-function initStorage(){
-  if(!ls('nc_inv')){const d={};INVENTORY_DEF.forEach(i=>d[i.name]=i.init);sv('nc_inv',d);}
-  if(!ls('nc_restock'))sv('nc_restock',[]);
-  if(!ls('nc_sales'))sv('nc_sales',[]);
+// ══ STORAGE — Supabase ══
+async function loadAllData(){
+  const [invRes,restockRes,salesRes]=await Promise.all([
+    sb.from('nc_inventory').select('*'),
+    sb.from('nc_restock').select('*').order('ts',{ascending:false}),
+    sb.from('nc_sales').select('*').order('ts',{ascending:false}),
+  ]);
+  _inv={};
+  (invRes.data||[]).forEach(r=>_inv[r.name]=parseFloat(r.stock)||0);
+  _restock=restockRes.data||[];
+  _sales=salesRes.data||[];
+}
+function getInv(){return _inv||{};}
+function getRestock(){return _restock||[];}
+function getSales(){return _sales||[];}
+async function saveStock(name,stock){
+  await sb.from('nc_inventory').upsert({name,stock,updated_at:new Date().toISOString()},{onConflict:'name'});
+  _inv[name]=stock;
+}
+async function addSale(row){await sb.from('nc_sales').insert(row);(_sales=_sales||[]).unshift(row);}
+async function addRestock(row){await sb.from('nc_restock').insert(row);(_restock=_restock||[]).unshift(row);}
 }
 function sv(k,v){localStorage.setItem(k,JSON.stringify(v));}
 function ls(k){return JSON.parse(localStorage.getItem(k)||'null');}
