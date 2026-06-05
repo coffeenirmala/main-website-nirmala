@@ -926,13 +926,16 @@ const ALERT_RECIPIENTS = [
   { name: 'gendut',            email: 'lungidanthaky@gmail.com' },
 ];
 
-const ROP_LOCK_KEY = 'nc_rop_lock';
+let _ropLock = null;
 
-function getRopLock() {
-  return JSON.parse(localStorage.getItem(ROP_LOCK_KEY) || '{}');
+async function loadRopLock() {
+  const {data} = await sb.from('nc_rop_lock').select('*');
+  _ropLock = {};
+  (data||[]).forEach(r => _ropLock[r.name] = true);
 }
-function setRopLock(lockObj) {
-  localStorage.setItem(ROP_LOCK_KEY, JSON.stringify(lockObj));
+function getRopLock() { return _ropLock || {}; }
+async function setRopLock(lockObj) {
+  // Handled by activateLock/releaseLock individually
 }
 
 /**
