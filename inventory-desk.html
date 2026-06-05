@@ -660,14 +660,19 @@ function openResetModal(){
     '<div class="modal-actions"><button class="btn-ghost" style="flex:1;" onclick="closeModal()">Batal</button><button class="btn-full danger" style="flex:1;" onclick="doReset()">Ya, Reset</button></div></div>';
   showModal();
 }
-function doReset(){
-  const d={};INVENTORY_DEF.forEach(i=>d[i.name]=0);
-  sv('nc_inv',d);sv('nc_restock',[]);sv('nc_sales',[]);
-  closeModal();
-  toast('Data direset. Memuat ulang halaman…','ok');
-  setTimeout(()=>location.reload(),1200);
+async function doReset(){
+  try{
+    await Promise.all([
+      sb.from('nc_inventory').delete().neq('name','__placeholder__'),
+      sb.from('nc_restock').delete().neq('item','__placeholder__'),
+      sb.from('nc_sales').delete().neq('item','__placeholder__'),
+      sb.from('nc_rop_lock').delete().neq('name','__placeholder__'),
+    ]);
+    closeModal();
+    toast('Data direset. Memuat ulang halaman…','ok');
+    setTimeout(()=>location.reload(),1200);
+  }catch(e){toast('Gagal reset: '+e.message,'err');}
 }
-
 // ══ OWNER: FORECAST ══
 function renderForecast(){
   const sales=getSales(), inv=getInv();
