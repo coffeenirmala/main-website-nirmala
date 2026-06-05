@@ -523,20 +523,21 @@ function formatPriceInput(el){
   document.getElementById('m-price-raw').value=raw;
   el.value=raw===''?'':new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0,maximumFractionDigits:0}).format(parseInt(raw||'0',10));
 }
-function submitRestock(name,unit){
+async function submitRestock(name,unit){
   const qty=parseFloat(document.getElementById('m-qty').value);
   const priceRaw=document.getElementById('m-price-raw').value;
   const price=priceRaw?parseInt(priceRaw,10):0;
   const note=document.getElementById('m-note').value.trim();
   if(!qty||qty<=0){toast('Masukkan jumlah yang valid','wrn');return;}
-  const inv=getInv();inv[name]=(inv[name]??0)+qty;sv('nc_inv',inv);
-  checkInventoryROP();
-  const rs=getRestock();
-  rs.push({date:today(),ts:Date.now(),item:name,unit,qty,price,note});
-  sv('nc_restock',rs);
-  const priceStr=price>0?new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(price):'';
-  toast('+ '+qty+' '+unit+' '+name+(priceStr?' · '+priceStr:''),'ok');
-  closeModal();render();
+  const newStock=((_inv||{})[name]??0)+qty;
+  try{
+    await saveStock(name,newStock);
+    await addRestock({date:today(),ts:Date.now(),item:name,unit,qty,price,note});
+    checkInventoryROP();
+    const priceStr=price>0?fmtRp(price):'';
+    toast('+ '+qty+' '+unit+' '+name+(priceStr?' · '+priceStr:''),'ok');
+    closeModal();render();
+  }catch(e){toast('Gagal: '+e.message,'err');}
 }
 
 // ══ BARISTA: LIHAT STOK ══
