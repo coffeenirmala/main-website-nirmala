@@ -337,7 +337,6 @@ function calcAssetValue(){
     return sum+(stock*hargaSatuan);          // nilai bahan ini
   },0);
 }
-
 // ══ STORAGE — Supabase ══
 async function loadAllData(){
   const [invRes,restockRes,salesRes]=await Promise.all([
@@ -359,12 +358,7 @@ async function saveStock(name,stock){
 }
 async function addSale(row){await sb.from('nc_sales').insert(row);(_sales=_sales||[]).unshift(row);}
 async function addRestock(row){await sb.from('nc_restock').insert(row);(_restock=_restock||[]).unshift(row);}
-}
-function sv(k,v){localStorage.setItem(k,JSON.stringify(v));}
-function ls(k){return JSON.parse(localStorage.getItem(k)||'null');}
-function getInv()    {return ls('nc_inv')||{};}
-function getRestock(){return ls('nc_restock')||[];}
-function getSales()  {return ls('nc_sales')||[];}
+
 
 // ══ LOGIN ══
 let role='barista',tab='',selRole='barista';
