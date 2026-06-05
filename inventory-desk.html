@@ -1212,8 +1212,7 @@ async function sendStockWarningEmail(itemName, stock, unit, rop) {
  * ═══════════════════════════════════════════════════════════
  */
 function checkInventoryROP() {
-  // Ambil data stok terkini dari localStorage
-  const inv = JSON.parse(localStorage.getItem('nc_inv') || '{}');
+  const inv = getInv();
 
   // INVENTORY_DEF harus tersedia di scope global (sudah ada di index.html)
   if (typeof INVENTORY_DEF === 'undefined') {
