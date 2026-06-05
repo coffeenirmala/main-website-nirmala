@@ -394,7 +394,7 @@ function logout(){
 }
 
 // ══ APP SETUP ══
-function setupApp(){
+async function setupApp(){
   document.getElementById('pill-icon').textContent=role==='owner'?'◎':'☕';
   document.getElementById('pill-label').textContent=role==='owner'?'Owner':'Barista';
   document.getElementById('role-pill').className='role-pill'+(role==='owner'?' owner-pill':'');
@@ -405,13 +405,9 @@ function setupApp(){
   document.getElementById('nav-tabs').innerHTML=tabs.map(([id,label])=>
     '<button class="nav-link'+(id===startTab?' active':'')+'" onclick="switchTab(\''+id+'\')">'+label+'</button>'
   ).join('');
-  tab=startTab;render();
-}
-function switchTab(t){
-  tab=t;
-  document.querySelectorAll('.nav-link').forEach(el=>{
-    el.classList.toggle('active',el.getAttribute('onclick').includes("'"+t+"'"));
-  });
+  tab=startTab;
+  toast('Memuat data…','ok');
+  await loadAllData();
   render();
 }
 
