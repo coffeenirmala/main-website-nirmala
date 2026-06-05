@@ -474,19 +474,20 @@ function renderInput(){
   }).join('');
   return '<div class="page-header"><div class="page-title">Input Stok.</div><div class="page-subtitle">Kurangi stok bahan baku secara manual</div></div>'+alert+'<div class="input-grid">'+cards+'</div>';
 }
-function deductItem(name,unit){
+async function deductItem(name,unit){
   const el=document.getElementById('in-'+name.replace(/\s+/g,'_'));
   const val=parseFloat(el.value);
   if(!val||val<=0){toast('Masukkan jumlah yang valid','wrn');return;}
-  const inv=getInv();const cur=inv[name]??0;
+  const cur=(_inv||{})[name]??0;
   if(val>cur){toast('Stok '+name+' tidak cukup (ada '+fmtNum(cur)+' '+unit+')','err');return;}
-  inv[name]=Math.max(0,cur-val);sv('nc_inv',inv);
-  checkInventoryROP();
-  const sales=getSales();
-  sales.push({date:today(),ts:Date.now(),type:'manual',item:name,qty:val,unit});
-  sv('nc_sales',sales);
-  toast('− '+val+' '+unit+' '+name+' dikurangi','ok');
-  el.value='';render();
+  const newStock=Math.max(0,cur-val);
+  try{
+    await saveStock(name,newStock);
+    await addSale({date:today(),ts:Date.now(),type:'manual',item:name,qty:val,unit});
+    checkInventoryROP();
+    toast('− '+val+' '+unit+' '+name+' dikurangi','ok');
+    el.value='';render();
+  }catch(e){toast('Gagal: '+e.message,'err');}
 }
 
 // ══ BARISTA: RESTOCK ══
