@@ -952,24 +952,16 @@ function isLocked(itemName) {
  * Lock ini mencegah pengiriman email berulang selama stok masih di bawah ROP.
  * @param {string} itemName
  */
-function activateLock(itemName) {
-  const lock = getRopLock();
-  lock[itemName] = true;
-  setRopLock(lock);
+async function activateLock(itemName) {
+  await sb.from('nc_rop_lock').upsert({name: itemName}, {onConflict: 'name'});
+  if (!_ropLock) _ropLock = {};
+  _ropLock[itemName] = true;
 }
 
-/**
- * Reset lock untuk item tertentu.
- * Dipanggil otomatis saat stok item di-restock melebihi nilai ROP.
- * Setelah reset, sistem boleh mengirim email kembali jika stok turun lagi.
- * @param {string} itemName
- */
-function releaseLock(itemName) {
-  const lock = getRopLock();
-  if (lock[itemName]) {
-    delete lock[itemName];
-    setRopLock(lock);
-    console.log(`[ROP Lock] Lock dilepas untuk: ${itemName}`);
+async function releaseLock(itemName) {
+  await sb.from('nc_rop_lock').delete().eq('name', itemName);
+  if (_ropLock) delete _ropLock[itemName];
+  console.log(`[ROP Lock] Lock dilepas untuk: ${itemName}`);
   }
 }
 
