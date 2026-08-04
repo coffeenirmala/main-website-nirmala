@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
 
   try {
-    const brevoRes = await fetch(`https://api.brevo.com/v3/contacts/lists/8/contacts?limit=100`, {
+    const brevoRes = await fetch(`https://api.brevo.com/v3/contacts/lists/8/contacts?limit=500`, {
       headers: {
         'accept': 'application/json',
         'api-key': process.env.BREVO_API_KEY,
