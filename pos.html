@@ -1,83 +1,596 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nirmala — Kasir</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100vh; color: #222; }
+.screen { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem; }
+.logo { text-align: center; margin-bottom: 1.5rem; }
+.logo h1 { font-size: 22px; font-weight: 500; letter-spacing: 0.05em; }
+.logo p { font-size: 13px; color: #888; margin-top: 4px; }
 
-  const SUPABASE_URL = process.env.SUPABASE_URL;
-  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+/* PIN */
+.pin-card { background: #fff; border: 0.5px solid #ddd; border-radius: 12px; padding: 2rem 1.5rem; text-align: center; max-width: 340px; margin: 2rem auto; }
+.pin-label { font-size: 14px; color: #666; margin-bottom: 1.5rem; }
+.pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #ccc; background: transparent; }
+.pin-dot.filled { background: #222; border-color: #222; }
+.numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 240px; margin: 0 auto; }
+.key { background: #f5f4f0; border: 0.5px solid #ddd; border-radius: 8px; padding: 14px; font-size: 18px; font-weight: 500; cursor: pointer; }
+.key.del { font-size: 13px; color: #888; }
+.pin-error { font-size: 13px; color: #c00; margin-top: 1rem; min-height: 20px; }
 
-  async function supabase(path) {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
+/* Layout utama */
+.app { display: none; }
+.header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px; }
+.header-bar h2 { font-size: 16px; font-weight: 500; }
+.logout-btn { font-size: 12px; color: #888; cursor: pointer; padding: 4px 10px; border: 0.5px solid #ddd; border-radius: 8px; background: none; }
+.tabs { display: flex; gap: 8px; margin-bottom: 1.25rem; }
+.tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: 0.5px solid #ddd; background: #fff; font-size: 13px; font-weight: 500; color: #666; cursor: pointer; }
+.tab-btn.active { background: #3C3489; color: #fff; border-color: #3C3489; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
-  function toDateStr(d) {
-    return d.toISOString().slice(0, 10);
-  }
+/* Kasir */
+.kasir-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
+@media (max-width: 720px) { .kasir-grid { grid-template-columns: 1fr; } }
+.menu-search { margin-bottom: 0.75rem; }
+.menu-search input { width: 100%; padding: 10px 14px; font-size: 15px; border: 0.5px solid #ccc; border-radius: 8px; }
+.menu-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.menu-item { background: #fff; border: 0.5px solid #eee; border-radius: 12px; padding: 14px 10px; text-align: center; cursor: pointer; }
+.menu-item:active { background: #f0f0f0; }
+.menu-item .name { font-size: 13px; font-weight: 500; }
+.menu-item .price { font-size: 12px; color: #888; margin-top: 4px; }
+.category-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 8px; }
 
-  try {
-    const { range, date } = req.query; // range: daily | weekly | monthly
-    const anchor = date ? new Date(date) : new Date();
-    let start, end;
+.cart-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; height: fit-content; }
+.cart-title { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
+.cart-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid #f0f0f0; font-size: 13px; }
+.cart-line-name { flex: 1; }
+.qty-ctrl { display: flex; align-items: center; gap: 8px; }
+.qty-ctrl button { width: 24px; height: 24px; border-radius: 6px; border: 0.5px solid #ccc; background: #fff; font-size: 14px; cursor: pointer; }
+.cart-total { display: flex; justify-content: space-between; font-size: 15px; font-weight: 500; margin: 12px 0; }
+.customer-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
+.customer-box input { width: 100%; padding: 8px 10px; font-size: 13px; border: 0.5px solid #ccc; border-radius: 6px; margin-top: 6px; }
+.customer-results { max-height: 140px; overflow-y: auto; margin-top: 6px; }
+.customer-result { padding: 6px 8px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+.customer-result:hover { background: #EEEDFE; }
+.customer-selected { display: flex; justify-content: space-between; align-items: center; background: #EEEDFE; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-top: 6px; }
+.customer-selected button { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; }
+.punch-hint { font-size: 11px; color: #3C3489; margin-top: 4px; }
+.btn-checkout { width: 100%; padding: 14px; background: #3C3489; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+.btn-checkout:disabled { opacity: 0.4; }
+.btn-clear { width: 100%; padding: 8px; background: none; color: #888; border: none; font-size: 12px; cursor: pointer; margin-top: 6px; }
 
-    if (range === 'weekly') {
-      const day = anchor.getDay(); // 0 = Minggu
-      const diffToMonday = (day + 6) % 7;
-      start = new Date(anchor);
-      start.setDate(anchor.getDate() - diffToMonday);
-      end = new Date(start);
-      end.setDate(start.getDate() + 6);
-    } else if (range === 'monthly') {
-      start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-      end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
-    } else {
-      // daily
-      start = new Date(anchor);
-      end = new Date(anchor);
-    }
+/* Laporan */
+.report-controls { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+.report-controls select, .report-controls input { padding: 8px 12px; border: 0.5px solid #ccc; border-radius: 8px; font-size: 13px; }
+.btn-secondary { padding: 8px 16px; background: #085041; color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.report-summary { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; margin-bottom: 1rem; }
+.report-total { font-size: 20px; font-weight: 500; }
+table.report-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; font-size: 13px; }
+table.report-table th, table.report-table td { text-align: left; padding: 8px 10px; border-bottom: 0.5px solid #eee; }
+table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 
-    const startStr = toDateStr(start);
-    const endStr = toDateStr(end);
+/* Kelola Menu */
+.form-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; margin-bottom: 1rem; }
+.form-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.form-row input, .form-row select { flex: 1; min-width: 120px; padding: 8px 10px; border: 0.5px solid #ccc; border-radius: 6px; font-size: 13px; }
+.btn-add { padding: 8px 16px; background: #3C3489; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.menu-manage-item { background: #fff; border-radius: 10px; border: 0.5px solid #eee; padding: 10px 14px; margin-bottom: 8px; }
+.menu-manage-item .top { display: flex; justify-content: space-between; align-items: center; }
+.menu-manage-item .top strong { font-size: 14px; }
+.menu-manage-item .top span { font-size: 12px; color: #888; }
+.recipe-list { margin-top: 6px; font-size: 12px; color: #666; }
+.small-btn { font-size: 11px; color: #c00; background: none; border: none; cursor: pointer; }
 
-    const [sales, menuRows] = await Promise.all([
-      supabase(`nc_sales?date=gte.${startStr}&date=lte.${endStr}&order=ts.asc`),
-      supabase(`nc_menu?select=name,price,category`),
-    ]);
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+.toast.show { opacity: 1; }
+.empty { text-align: center; padding: 1.5rem; color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="logo">
+    <h1>Nirmala</h1>
+    <p>Kasir</p>
+  </div>
 
-    const priceMap = Object.fromEntries(menuRows.map((m) => [m.name, m.price]));
+  <!-- PIN Screen -->
+  <div class="pin-card" id="pin-screen">
+    <p class="pin-label">Masukkan PIN untuk lanjut</p>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="numpad">
+      <button class="key" onclick="pressKey('1')">1</button>
+      <button class="key" onclick="pressKey('2')">2</button>
+      <button class="key" onclick="pressKey('3')">3</button>
+      <button class="key" onclick="pressKey('4')">4</button>
+      <button class="key" onclick="pressKey('5')">5</button>
+      <button class="key" onclick="pressKey('6')">6</button>
+      <button class="key" onclick="pressKey('7')">7</button>
+      <button class="key" onclick="pressKey('8')">8</button>
+      <button class="key" onclick="pressKey('9')">9</button>
+      <button class="key del" onclick="pressKey('del')">hapus</button>
+      <button class="key" onclick="pressKey('0')">0</button>
+      <button class="key del" style="font-size:18px" onclick="pressKey('ok')">ok</button>
+    </div>
+    <p class="pin-error" id="pin-error"></p>
+  </div>
 
-    let grandTotal = 0;
-    const rows = sales.map((s) => {
-      const price = priceMap[s.item] ?? 0;
-      const subtotal = s.type === 'pos_sale' ? price * s.qty : 0;
-      if (s.type === 'pos_sale') grandTotal += subtotal;
-      return {
-        date: s.date,
-        item: s.item,
-        qty: s.qty,
-        unit: s.unit,
-        type: s.type,
-        price,
-        subtotal,
-      };
-    });
+  <!-- App -->
+  <div class="app" id="app-screen">
+    <div class="header-bar">
+      <h2>Nirmala Kasir</h2>
+      <button class="logout-btn" onclick="logout()">Keluar</button>
+    </div>
 
-    return res.status(200).json({
-      range: range || 'daily',
-      start: startStr,
-      end: endStr,
-      rows,
-      grand_total: grandTotal,
-    });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="kasir" onclick="switchTab('kasir')">Kasir</button>
+      <button class="tab-btn" data-tab="laporan" onclick="switchTab('laporan')">Laporan</button>
+      <button class="tab-btn" data-tab="kelola" onclick="switchTab('kelola')">Kelola Menu</button>
+    </div>
+
+    <!-- Tab: Kasir -->
+    <div class="tab-panel active" id="tab-kasir">
+      <div class="kasir-grid">
+        <div>
+          <div class="menu-search">
+            <input type="text" id="menu-search-input" placeholder="Cari menu..." oninput="renderMenu()" />
+          </div>
+          <div id="menu-items-container"><div class="empty">Memuat menu...</div></div>
+        </div>
+
+        <div class="cart-card">
+          <div class="cart-title">Keranjang</div>
+          <div id="cart-lines"><div class="empty">Belum ada item</div></div>
+          <div class="cart-total">
+            <span>Total</span>
+            <span id="cart-total-val">Rp 0</span>
+          </div>
+
+          <div class="customer-box">
+            <strong style="font-size:12px">Customer (opsional)</strong>
+            <input type="text" id="customer-search" placeholder="Cari nama customer..." oninput="searchCustomer()" />
+            <div class="customer-results" id="customer-results"></div>
+            <div id="customer-selected-box"></div>
+          </div>
+
+          <button class="btn-checkout" id="btn-checkout" onclick="checkout()" disabled>Checkout</button>
+          <button class="btn-clear" onclick="clearCart()">Kosongkan keranjang</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Laporan -->
+    <div class="tab-panel" id="tab-laporan">
+      <div class="report-controls">
+        <select id="report-range" onchange="loadReport()">
+          <option value="daily">Harian</option>
+          <option value="weekly">Mingguan</option>
+          <option value="monthly">Bulanan</option>
+        </select>
+        <input type="date" id="report-date" onchange="loadReport()" />
+        <button class="btn-secondary" onclick="downloadCsv()">Download CSV</button>
+      </div>
+      <div class="report-summary">
+        <div style="font-size:12px;color:#888" id="report-range-label">—</div>
+        <div class="report-total" id="report-total">Rp 0</div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="report-table" id="report-table">
+          <thead><tr><th>Tanggal</th><th>Item</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th>Tipe</th></tr></thead>
+          <tbody id="report-tbody"><tr><td colspan="6" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab: Kelola Menu -->
+    <div class="tab-panel" id="tab-kelola">
+      <div class="form-card">
+        <strong style="font-size:13px">Tambah / Update Menu</strong>
+        <div class="form-row" style="margin-top:8px">
+          <input type="text" id="new-menu-name" placeholder="Nama menu (mis. Cappuccino)" />
+          <input type="text" id="new-menu-category" placeholder="Kategori (mis. Coffee)" />
+          <input type="number" id="new-menu-price" placeholder="Harga jual (Rp)" />
+          <button class="btn-add" onclick="addMenu()">Simpan</button>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <strong style="font-size:13px">Tambah Resep (bahan baku per menu)</strong>
+        <div class="form-row" style="margin-top:8px">
+          <select id="recipe-menu-select"></select>
+          <select id="recipe-ingredient-select"></select>
+          <input type="number" id="recipe-qty" placeholder="Qty terpakai" step="any" />
+          <input type="text" id="recipe-unit" placeholder="Satuan (gr/ml/pcs)" />
+          <button class="btn-add" onclick="addRecipe()">Tambah</button>
+        </div>
+      </div>
+
+      <div id="menu-manage-list"><div class="empty">Memuat daftar menu...</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CORRECT_PIN = '1234';
+let pin = '';
+let allMenu = [];
+let allRecipes = [];
+let allInventory = [];
+let cart = []; // { menu_name, price, qty }
+let selectedCustomer = null; // { email, name }
+let allMembers = [];
+let currentReport = null;
+
+// ---------- PIN ----------
+function pressKey(k) {
+  if (k === 'del') { pin = pin.slice(0, -1); }
+  else if (k === 'ok') { checkPin(); return; }
+  else if (pin.length < 4) { pin += k; }
+  updateDots();
+  if (pin.length === 4) setTimeout(checkPin, 150);
+}
+function updateDots() {
+  for (let i = 0; i < 4; i++) document.getElementById('d' + i).classList.toggle('filled', i < pin.length);
+}
+function checkPin() {
+  if (pin === CORRECT_PIN) {
+    document.getElementById('pin-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('pin-error').textContent = 'PIN salah, coba lagi';
+    pin = ''; updateDots();
   }
 }
+function logout() {
+  pin = ''; updateDots();
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-screen').style.display = 'block';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+// ---------- Tabs ----------
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'laporan') loadReport();
+  if (tab === 'kelola') renderKelolaMenu();
+}
+
+// ---------- Init ----------
+async function initApp() {
+  await loadMenuData();
+  renderMenu();
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('report-date').value = today;
+}
+
+async function loadMenuData() {
+  try {
+    const res = await fetch('/api/menu');
+    const data = await res.json();
+    allMenu = (data.menu || []).filter(m => m.active !== false);
+    allRecipes = data.recipes || [];
+  } catch (e) {
+    document.getElementById('menu-items-container').innerHTML = '<div class="empty">Gagal memuat menu.</div>';
+  }
+}
+
+// ---------- Kasir: render menu grid ----------
+function renderMenu() {
+  const q = document.getElementById('menu-search-input').value.toLowerCase();
+  const filtered = allMenu.filter(m => m.name.toLowerCase().includes(q));
+  const grouped = {};
+  filtered.forEach(m => {
+    const cat = m.category || 'lainnya';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(m);
+  });
+  const container = document.getElementById('menu-items-container');
+  if (!filtered.length) { container.innerHTML = '<div class="empty">Menu tidak ditemukan</div>'; return; }
+  container.innerHTML = Object.keys(grouped).map(cat => `
+    <div class="category-label">${cat}</div>
+    <div class="menu-items">
+      ${grouped[cat].map(m => `
+        <div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.price})">
+          <div class="name">${m.name}</div>
+          <div class="price">Rp ${m.price.toLocaleString('id-ID')}</div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+// ---------- Cart ----------
+function addToCart(name, price) {
+  const existing = cart.find(c => c.menu_name === name);
+  if (existing) existing.qty++;
+  else cart.push({ menu_name: name, price, qty: 1 });
+  renderCart();
+}
+function changeQty(name, delta) {
+  const item = cart.find(c => c.menu_name === name);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) cart = cart.filter(c => c.menu_name !== name);
+  renderCart();
+}
+function clearCart() { cart = []; renderCart(); }
+function renderCart() {
+  const el = document.getElementById('cart-lines');
+  if (!cart.length) {
+    el.innerHTML = '<div class="empty">Belum ada item</div>';
+  } else {
+    el.innerHTML = cart.map(c => `
+      <div class="cart-line">
+        <div class="cart-line-name">${c.menu_name}<br><span style="color:#888;font-size:11px">Rp ${c.price.toLocaleString('id-ID')}</span></div>
+        <div class="qty-ctrl">
+          <button onclick="changeQty('${c.menu_name.replace(/'/g, "\\'")}', -1)">−</button>
+          <span>${c.qty}</span>
+          <button onclick="changeQty('${c.menu_name.replace(/'/g, "\\'")}', 1)">+</button>
+        </div>
+      </div>
+    `).join('');
+  }
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  document.getElementById('cart-total-val').textContent = 'Rp ' + total.toLocaleString('id-ID');
+  document.getElementById('btn-checkout').disabled = cart.length === 0;
+}
+
+// ---------- Customer search (reuse pola loyalty-desk) ----------
+async function searchCustomer() {
+  const q = document.getElementById('customer-search').value.trim();
+  const resultsEl = document.getElementById('customer-results');
+  if (q.length < 2) { resultsEl.innerHTML = ''; return; }
+
+  if (allMembers.length === 0) {
+    try {
+      const res = await fetch('/api/loyalty-members');
+      const data = await res.json();
+      allMembers = data.contacts || [];
+    } catch (e) { return; }
+  }
+
+  const ql = q.toLowerCase();
+  const filtered = allMembers.filter(c => {
+    const name = `${c.attributes?.FIRSTNAME || ''} ${c.attributes?.LASTNAME || ''}`.toLowerCase();
+    return name.includes(ql) || c.email.toLowerCase().includes(ql);
+  }).slice(0, 8);
+
+  if (!filtered.length) { resultsEl.innerHTML = '<div class="empty" style="padding:6px">Tidak ditemukan</div>'; return; }
+  resultsEl.innerHTML = filtered.map(c => {
+    const fn = c.attributes?.FIRSTNAME || '';
+    const ln = c.attributes?.LASTNAME || '';
+    const name = [fn, ln].filter(Boolean).join(' ') || c.email;
+    return `<div class="customer-result" onclick="selectCustomer('${c.email.replace(/'/g, "\\'")}', '${name.replace(/'/g, "\\'")}')">${name} — ${c.email}</div>`;
+  }).join('');
+}
+function selectCustomer(email, name) {
+  selectedCustomer = { email, name };
+  document.getElementById('customer-results').innerHTML = '';
+  document.getElementById('customer-search').value = '';
+  document.getElementById('customer-selected-box').innerHTML = `
+    <div class="customer-selected">
+      <span>${name}</span>
+      <button onclick="clearCustomer()">✕</button>
+    </div>
+    <div class="punch-hint">Transaksi ini akan menambah 1 punch untuk customer ini</div>
+  `;
+}
+function clearCustomer() {
+  selectedCustomer = null;
+  document.getElementById('customer-selected-box').innerHTML = '';
+}
+
+// ---------- Checkout ----------
+async function checkout() {
+  if (!cart.length) return;
+  const btn = document.getElementById('btn-checkout');
+  btn.disabled = true;
+  btn.textContent = 'Memproses...';
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: cart.map(c => ({ menu_name: c.menu_name, qty: c.qty })),
+        customer_email: selectedCustomer ? selectedCustomer.email : undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Checkout gagal');
+    showToast('Transaksi berhasil! Rp ' + data.total.toLocaleString('id-ID'));
+    if (data.warnings && data.warnings.length) {
+      showToast('⚠️ ' + data.warnings.join('; '));
+    }
+    clearCart();
+    clearCustomer();
+  } catch (e) {
+    showToast('Gagal: ' + e.message);
+  } finally {
+    btn.textContent = 'Checkout';
+    btn.disabled = cart.length === 0;
+  }
+}
+
+// ---------- Laporan ----------
+async function loadReport() {
+  const range = document.getElementById('report-range').value;
+  const date = document.getElementById('report-date').value;
+  document.getElementById('report-tbody').innerHTML = '<tr><td colspan="6" class="empty">Memuat...</td></tr>';
+  try {
+    const res = await fetch(`/api/sales-report?range=${range}&date=${date}`);
+    const data = await res.json();
+    currentReport = data;
+    document.getElementById('report-range-label').textContent = `${data.start} s/d ${data.end}`;
+    document.getElementById('report-total').textContent = 'Rp ' + data.grand_total.toLocaleString('id-ID');
+    const tbody = document.getElementById('report-tbody');
+    if (!data.rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">Tidak ada transaksi</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.rows.map(r => `
+      <tr>
+        <td>${r.date}</td>
+        <td>${r.item}</td>
+        <td>${r.qty} ${r.unit || ''}</td>
+        <td>Rp ${r.price.toLocaleString('id-ID')}</td>
+        <td>Rp ${r.subtotal.toLocaleString('id-ID')}</td>
+        <td>${r.type}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    document.getElementById('report-tbody').innerHTML = '<tr><td colspan="6" class="empty">Gagal memuat laporan</td></tr>';
+  }
+}
+function downloadCsv() {
+  if (!currentReport || !currentReport.rows.length) { showToast('Tidak ada data untuk diunduh'); return; }
+  const header = ['Tanggal', 'Item', 'Qty', 'Satuan', 'Harga', 'Subtotal', 'Tipe'];
+  const lines = [header.join(',')];
+  currentReport.rows.forEach(r => {
+    lines.push([r.date, `"${r.item}"`, r.qty, r.unit || '', r.price, r.subtotal, r.type].join(','));
+  });
+  lines.push('');
+  lines.push(`Total,,,,,${currentReport.grand_total},`);
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `nirmala-sales-${currentReport.range}-${currentReport.start}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- Kelola Menu ----------
+async function loadInventoryList() {
+  if (allInventory.length) return;
+  try {
+    // pakai endpoint inventory kalau ada; fallback: tidak wajib untuk fitur ini
+    const res = await fetch('/api/inventory-list');
+    if (res.ok) {
+      const data = await res.json();
+      allInventory = data.items || data || [];
+    }
+  } catch (e) { /* opsional, lihat catatan di bawah */ }
+}
+
+async function addMenu() {
+  const name = document.getElementById('new-menu-name').value.trim();
+  const category = document.getElementById('new-menu-category').value.trim();
+  const price = parseFloat(document.getElementById('new-menu-price').value);
+  if (!name || !price) { showToast('Nama & harga wajib diisi'); return; }
+  try {
+    const res = await fetch('/api/menu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert_menu', name, category, price }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    document.getElementById('new-menu-name').value = '';
+    document.getElementById('new-menu-category').value = '';
+    document.getElementById('new-menu-price').value = '';
+    showToast('Menu tersimpan');
+    await loadMenuData();
+    renderKelolaMenu();
+    renderMenu();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function addRecipe() {
+  const menu_name = document.getElementById('recipe-menu-select').value;
+  const ingredient_name = document.getElementById('recipe-ingredient-select').value;
+  const qty_used = parseFloat(document.getElementById('recipe-qty').value);
+  const unit = document.getElementById('recipe-unit').value.trim();
+  if (!menu_name || !ingredient_name || !qty_used) { showToast('Lengkapi semua field resep'); return; }
+  try {
+    const res = await fetch('/api/menu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert_recipe', menu_name, ingredient_name, qty_used, unit }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    document.getElementById('recipe-qty').value = '';
+    document.getElementById('recipe-unit').value = '';
+    showToast('Resep ditambahkan');
+    await loadMenuData();
+    renderKelolaMenu();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function deleteMenu(name) {
+  if (!confirm(`Hapus menu "${name}"? Resepnya juga akan terhapus.`)) return;
+  await fetch('/api/menu', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete_menu', name }),
+  });
+  await loadMenuData();
+  renderKelolaMenu();
+  renderMenu();
+}
+async function deleteRecipe(id) {
+  await fetch('/api/menu', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete_recipe', id }),
+  });
+  await loadMenuData();
+  renderKelolaMenu();
+}
+
+async function renderKelolaMenu() {
+  await loadInventoryList();
+
+  // isi dropdown menu & ingredient
+  const menuSelect = document.getElementById('recipe-menu-select');
+  menuSelect.innerHTML = allMenu.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  const ingSelect = document.getElementById('recipe-ingredient-select');
+  if (allInventory.length) {
+    ingSelect.innerHTML = allInventory.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+  } else {
+    ingSelect.innerHTML = '<option value="">(ketik manual di bawah jika kosong)</option>';
+  }
+
+  const container = document.getElementById('menu-manage-list');
+  if (!allMenu.length) { container.innerHTML = '<div class="empty">Belum ada menu, tambahkan di atas.</div>'; return; }
+  container.innerHTML = allMenu.map(m => {
+    const recipes = allRecipes.filter(r => r.menu_name === m.name);
+    return `
+      <div class="menu-manage-item">
+        <div class="top">
+          <strong>${m.name}</strong>
+          <span>Rp ${m.price.toLocaleString('id-ID')} · ${m.category}
+            <button class="small-btn" onclick="deleteMenu('${m.name.replace(/'/g, "\\'")}')">hapus</button>
+          </span>
+        </div>
+        <div class="recipe-list">
+          ${recipes.length ? recipes.map(r => `${r.ingredient_name} (${r.qty_used}${r.unit}) <button class="small-btn" onclick="deleteRecipe(${r.id})">x</button>`).join(' · ') : 'Belum ada resep'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ---------- Toast ----------
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
