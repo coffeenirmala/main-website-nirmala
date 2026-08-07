@@ -74,24 +74,22 @@ export default async function handler(req, res) {
         `nc_inventory?name=in.(${ingredientNames.map(encodeURIComponent).join(',')})`
       );
       const stockMap = Object.fromEntries(stockRows.map((s) => [s.name, s.stock]));
-
-      for (const ing of ingredientNames) {
+      
+      await Promise.all(ingredientNames.map((ing) => {
         if (!(ing in stockMap)) {
-          // Nama bahan di resep tidak match persis dengan nc_inventory (typo, atau
-          // belum ditambahkan). Jangan diam-diam gagal — beri tahu kasir/owner.
           warnings.push(`Bahan "${ing}" tidak ditemukan di nc_inventory — stok TIDAK dikurangi untuk bahan ini. Cek nama di resep vs nc_inventory.`);
-          continue;
+          return null;
         }
         const currentStock = stockMap[ing];
         const newStock = currentStock - deduction[ing];
         if (newStock < 0) {
           warnings.push(`Stok "${ing}" minus (${newStock}) setelah transaksi ini`);
         }
-        await supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
+        return supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
           stock: newStock,
           updated_at: new Date().toISOString(),
         });
-      }
+      }));
     }
 
     // 5. Catat penjualan ke nc_sales (satu baris per menu item)
