@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Absensi — Nirmala Coffee</title>
+<style>
+  :root{
+    --primary:#EEEBE3;
+    --primary-2:#E2DDD0;
+    --secondary:#004225;
+    --secondary-2:#0A5C34;
+    --wine:#5C1F2E;
+    --wine-2:#6E2839;
+    --paper:#FFFFFE;
+    --ink-light:#6E7268;
+    --line: rgba(0,66,37,0.16);
+    --radius-lg:20px;
+    --radius-md:14px;
+    --font-serif:'Times New Roman', Times, serif;
+    --font-sans: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#DCD5C4;
+    font-family:var(--font-serif);
+    color:var(--secondary);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app-frame{
+    width:100%;
+    max-width:430px;
+    min-height:100vh;
+    background:var(--primary);
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  @media (min-width:600px){
+    body{ padding:32px 12px; }
+    .app-frame{
+      min-height:820px;
+      max-height:900px;
+      border-radius:32px;
+      border:1px solid rgba(0,66,37,0.18);
+      box-shadow: 0 30px 60px rgba(0,66,37,0.22);
+    }
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:20px 22px 14px; flex-shrink:0;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .mark{
+    width:42px; height:42px; border-radius:12px; background:var(--secondary);
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+  }
+  .brand .brandtext{ display:flex; flex-direction:column; line-height:1.1; }
+  .brand .word{ font-family:var(--font-serif); font-weight:700; font-size:19px; color:var(--secondary); }
+  .brand .sub{ font-family:var(--font-sans); font-size:9px; letter-spacing:2.5px; color:var(--ink-light); margin-top:2px; }
+  .live-clock{ font-family:var(--font-sans); text-align:right; line-height:1.25; }
+  .live-clock .t{ font-size:15px; font-weight:700; color:var(--secondary); }
+  .live-clock .d{ font-size:9.5px; color:var(--ink-light); }
+
+  main{ flex:1; position:relative; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .screen{ display:none; padding:6px 22px 28px; animation: rise .32s ease; }
+  .screen.active{ display:block; }
+  @keyframes rise{ from{ opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+  .backbtn{
+    display:inline-flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer;
+    font-family:var(--font-sans); font-size:13px; font-weight:700; color:var(--secondary); padding:8px 0 18px; margin:0;
+  }
+  h1.page-title{ font-family:var(--font-serif); font-weight:700; font-size:24px; margin:2px 0 4px; color:var(--secondary); }
+  p.page-sub{ font-family:var(--font-sans); color:var(--ink-light); font-size:13px; margin:0 0 20px; line-height:1.55; }
+
+  label{ display:block; font-family:var(--font-sans); font-size:12px; font-weight:700; letter-spacing:.3px; margin:16px 0 6px; color:var(--secondary); }
+  select, input[type="password"]{
+    width:100%; padding:13px 14px; border-radius:var(--radius-md); border:1.5px solid var(--line);
+    background:var(--paper); font-family:var(--font-sans); font-size:15px; font-weight:600; color:var(--secondary);
+    appearance:none;
+  }
+  select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23004225' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 16px center;
+  }
+  select:focus, input:focus{ outline:none; border-color:var(--secondary); }
+
+  .action-toggle{ display:flex; gap:8px; margin-top:6px; }
+  .action-toggle button{
+    flex:1; padding:13px; border-radius:100px; border:1.5px solid var(--line); background:var(--paper);
+    font-family:var(--font-sans); font-size:14px; font-weight:700; color:var(--secondary); cursor:pointer;
+  }
+  .action-toggle button.selected.in{ background:var(--secondary); border-color:var(--secondary); color:var(--primary); }
+  .action-toggle button.selected.out{ background:var(--wine); border-color:var(--wine); color:var(--primary); }
+
+  .btn{
+    width:100%; padding:15px; border-radius:100px; border:none; font-family:var(--font-sans);
+    font-size:15px; font-weight:700; cursor:pointer; margin-top:22px; background:var(--secondary); color:var(--primary);
+  }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-secondary{ background:var(--paper); color:var(--secondary); border:1.5px solid var(--line); }
+  .btn-row{ display:flex; gap:10px; margin-top:20px; }
+  .btn-row .btn{ margin-top:0; }
+
+  .cam-box{
+    position:relative; width:100%; aspect-ratio:4/3; border-radius:var(--radius-lg);
+    background:var(--secondary); overflow:hidden; border:2px dashed var(--wine);
+    display:flex; align-items:center; justify-content:center; margin-top:14px;
+  }
+  .cam-box video{ width:100%; height:100%; object-fit:cover; display:block; transform:scaleX(-1); }
+  .cam-placeholder{ color:rgba(238,235,227,.6); font-size:12.5px; text-align:center; padding:20px; font-family:var(--font-sans); }
+  .shutter-row{ display:flex; justify-content:center; margin:18px 0; }
+  .shutter{
+    width:64px; height:64px; border-radius:50%; background:var(--secondary);
+    border:4px solid var(--paper); box-shadow:0 0 0 2px var(--secondary); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .shutter:active{ transform:scale(.93); }
+  .retake{
+    display:block; margin:0 auto; background:none; border:none; text-decoration:underline;
+    font-family:var(--font-sans); font-size:12.5px; color:var(--ink-light); cursor:pointer;
+  }
+
+  .loc-card{ margin-top:18px; border-radius:var(--radius-lg); background:var(--paper); border:1.5px solid var(--line); padding:18px; text-align:center; }
+  .radar{ position:relative; width:80px; height:80px; margin:0 auto 12px; }
+  .radar .ring{ position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--secondary-2); animation:pulse 2.2s ease-out infinite; }
+  .radar .ring:nth-child(2){ animation-delay:.7s; }
+  .radar .ring:nth-child(3){ animation-delay:1.4s; }
+  .radar .dot{ position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px; border-radius:50%; background:var(--secondary); }
+  @keyframes pulse{ 0%{transform:scale(.3); opacity:1;} 100%{transform:scale(1.6); opacity:0;} }
+  .loc-status{ font-family:var(--font-sans); font-size:12px; margin-bottom:2px; color:var(--ink-light); }
+  .loc-dist{ font-family:var(--font-sans); font-weight:700; font-size:20px; color:var(--secondary); }
+  .badge{ display:inline-block; margin-top:10px; padding:6px 14px; border-radius:100px; font-size:11.5px; font-weight:700; font-family:var(--font-sans); }
+  .badge.ok{ background:rgba(0,66,37,0.12); color:var(--secondary); }
+  .badge.info{ background:var(--primary-2); color:var(--ink-light); }
+  .badge.bad{ background:rgba(92,31,46,0.12); color:var(--wine); }
+  .relocate{
+    margin-top:12px; background:none; border:1.5px solid var(--line); border-radius:100px; padding:8px 16px;
+    font-size:12px; font-family:var(--font-sans); font-weight:700; color:var(--secondary); cursor:pointer;
+  }
+
+  .status-box{ margin-top:14px; padding:12px 14px; border-radius:var(--radius-md); font-size:13px; font-family:var(--font-sans); line-height:1.5; display:none; }
+  .status-box.show{ display:block; }
+  .status-box.error{ background:rgba(92,31,46,0.1); color:var(--wine); }
+
+  .receipt{ background:var(--paper); border-radius:4px; padding:26px 22px 30px; position:relative; margin-top:8px; box-shadow:0 14px 30px rgba(0,66,37,0.16); }
+  .receipt::before, .receipt::after{
+    content:""; position:absolute; left:0; right:0; height:10px;
+    background-image: radial-gradient(circle, var(--primary) 4.5px, transparent 4.6px);
+    background-size:16px 16px; background-position:-4px center;
+  }
+  .receipt::before{ top:-5px; } .receipt::after{ bottom:-5px; }
+  .stamp{
+    position:absolute; top:18px; right:20px; width:80px; height:80px; border:2.5px solid var(--secondary); border-radius:50%;
+    color:var(--secondary); display:flex; align-items:center; justify-content:center; text-align:center;
+    transform:rotate(-12deg); font-family:var(--font-sans); font-weight:700; font-size:9.5px; letter-spacing:.4px; line-height:1.3; opacity:.9;
+  }
+  .receipt h2{ font-family:var(--font-serif); font-weight:700; font-size:19px; margin:0 0 2px; padding-right:70px; color:var(--secondary); }
+  .receipt .sub{ font-family:var(--font-sans); font-size:11px; color:var(--ink-light); margin-bottom:16px; }
+  .r-row{ display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px dashed var(--line); font-size:13px; font-family:var(--font-sans); }
+  .r-row .k{ color:var(--ink-light); }
+  .r-row .v{ font-weight:700; font-size:12.5px; text-align:right; color:var(--secondary); }
+  .r-photo{ width:100%; aspect-ratio:4/3; border-radius:10px; overflow:hidden; margin:14px 0; background:var(--primary-2); }
+  .r-photo img{ width:100%; height:100%; object-fit:cover; display:block; transform:scaleX(-1); }
+  .done-btn{
+    width:100%; margin-top:18px; padding:15px; border:none; border-radius:100px; background:var(--secondary);
+    color:var(--primary); font-weight:700; font-family:var(--font-sans); font-size:14.5px; cursor:pointer;
+  }
+  .loader{
+    display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-top-color:transparent;
+    border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app-frame">
+  <header>
+    <div class="brand">
+      <div class="mark">☕</div>
+      <div class="brandtext">
+        <span class="word">Nirmala</span>
+        <span class="sub">COFFEE</span>
+      </div>
+    </div>
+    <div class="live-clock">
+      <div class="t" id="clockTime">--:--:--</div>
+      <div class="d" id="clockDate">-</div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- STEP 1: Login -->
+    <section class="screen active" id="screen-login">
+      <h1 class="page-title">Rekam Absensi</h1>
+      <p class="page-sub">Pilih nama, masukkan PIN, dan pilih jenis absensi.</p>
+
+      <label for="employee">Nama</label>
+      <select id="employee">
+        <option value="">Pilih nama karyawan…</option>
+        <option value="76ff88e2-4dcb-4093-bce7-26c47bac4c11">Albert</option>
+        <option value="a5521723-7456-488c-9f28-0662859cb694">Ello</option>
+        <option value="afd48cb6-49e4-4950-9e85-854a12e2a01a">Christian</option>
+        <option value="22a8c6aa-e6f9-4550-bc9e-0e8ed843b5f0">Test - Oneal</option>
+      </select>
+
+      <label for="pin">PIN</label>
+      <input type="password" id="pin" inputmode="numeric" maxlength="6" placeholder="••••">
+
+      <label>Aksi</label>
+      <div class="action-toggle">
+        <button type="button" id="btn-in" class="selected in" onclick="selectAction('in')">Clock In</button>
+        <button type="button" id="btn-out" onclick="selectAction('out')">Clock Out</button>
+      </div>
+
+      <button class="btn" id="btn-login" onclick="doLogin()">Lanjut</button>
+      <div class="status-box" id="login-status"></div>
+    </section>
+
+    <!-- STEP 2: Camera + GPS -->
+    <section class="screen" id="screen-camera">
+      <button class="backbtn" onclick="cancelCapture()">← Kembali</button>
+      <h1 class="page-title" id="captureTitle">Clock In</h1>
+      <p class="page-sub">Ambil selfie untuk verifikasi. Pastikan wajah terlihat jelas.</p>
+
+      <div class="cam-box" id="camBox">
+        <div class="cam-placeholder" id="camPlaceholder">Mengaktifkan kamera…</div>
+        <video id="video" autoplay playsinline muted style="display:none;"></video>
+        <img id="capturedImg" style="display:none; width:100%; height:100%; object-fit:cover; transform:scaleX(-1);" alt="Selfie preview">
+      </div>
+      <canvas id="canvas" style="display:none;"></canvas>
+
+      <div class="shutter-row" id="shutterRow">
+        <div class="shutter" onclick="captureSelfie()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EEEBE3" stroke-width="2"><path d="M4 8a2 2 0 0 1 2-2h1l1.5-2h7L17 6h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><circle cx="12" cy="13" r="3.2"/></svg>
+        </div>
+      </div>
+      <button class="retake" id="retakeBtn" style="display:none;" onclick="retakeSelfie()">Ambil ulang foto</button>
+
+      <div class="loc-card">
+        <div class="radar"><div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="dot"></div></div>
+        <div class="loc-status" id="loc-status-text">Mencari lokasi…</div>
+        <div class="loc-dist" id="loc-dist">—</div>
+        <span class="badge info" id="loc-badge">Info lokasi (tidak memblokir absen)</span><br>
+        <button class="relocate" onclick="getGPS()">Cek ulang lokasi</button>
+      </div>
+
+      <div class="btn-row" id="confirmRow" style="display:none;">
+        <button class="btn btn-secondary" onclick="retakeSelfie()">Ambil Ulang</button>
+        <button class="btn" id="btn-confirm" onclick="confirmAndSubmit()">Konfirmasi & Kirim</button>
+      </div>
+
+      <div class="status-box" id="camera-status"></div>
+    </section>
+
+    <!-- STEP 3: Receipt -->
+    <section class="screen" id="screen-receipt">
+      <div class="receipt">
+        <div class="stamp" id="receipt-stamp">TERSIMPAN</div>
+        <h2 id="receipt-title">Clock In Berhasil</h2>
+        <div class="sub" id="receipt-id">—</div>
+        <div class="r-photo" id="receipt-photo-wrap" style="display:none;"><img id="receipt-photo" src="" alt=""></div>
+        <div class="r-row"><span class="k">Nama</span><span class="v" id="r-name">—</span></div>
+        <div class="r-row" id="r-time-row"><span class="k">Jam masuk</span><span class="v" id="r-time">—</span></div>
+        <div class="r-row" id="r-late-row"><span class="k">Telat</span><span class="v" id="r-late">—</span></div>
+        <div class="r-row" id="r-deduct-row"><span class="k">Potongan</span><span class="v" id="r-deduct">—</span></div>
+        <div class="r-row" id="r-dist-row"><span class="k">Jarak lokasi</span><span class="v" id="r-dist">—</span></div>
+        <button class="done-btn" onclick="resetForm()">Absen Lagi</button>
+      </div>
+      <div class="status-box" id="result-error"></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ddxwkqfpxtbdfosfzmam.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkeHdrcWZweHRiZGZvc2Z6bWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDI3OTUsImV4cCI6MjA5MDE3ODc5NX0.-X8k78co46tVY4lnFTsfdGTIpJPkWjwmkEAkvpuxmk0';
+
+  /* Estimasi koordinat toko — HANYA untuk info jarak, TIDAK memblokir absen
+     karena attendance-punch.js belum ada validasi radius. */
+  const NIRMALA = { lat: -7.77635, lng: 110.39062 };
+
+  let currentAction = 'in';
+  let currentEmployee = null;
+  let currentPosition = null;
+  let capturedBlob = null;
+  let stream = null;
+
+  const DOW = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const MON = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  function pad(n){ return n.toString().padStart(2,'0'); }
+  function tickClock(){
+    const now = new Date();
+    document.getElementById('clockTime').textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    document.getElementById('clockDate').textContent = `${DOW[now.getDay()]}, ${now.getDate()} ${MON[now.getMonth()]} ${now.getFullYear()}`;
+  }
+  tickClock(); setInterval(tickClock,1000);
+
+  function selectAction(action){
+    currentAction = action;
+    document.getElementById('btn-in').classList.toggle('selected', action==='in');
+    document.getElementById('btn-in').classList.toggle('in', action==='in');
+    document.getElementById('btn-out').classList.toggle('selected', action==='out');
+    document.getElementById('btn-out').classList.toggle('out', action==='out');
+  }
+
+  function showStatus(id, type, msg){
+    const el = document.getElementById(id);
+    el.className = 'status-box show ' + type;
+    el.innerHTML = msg;
+  }
+  function hideStatus(id){ document.getElementById(id).className = 'status-box'; }
+
+  function go(id){
+    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+
+  async function doLogin(){
+    const sel = document.getElementById('employee');
+    const employeeId = sel.value;
+    const pin = document.getElementById('pin').value.trim();
+
+    if(!employeeId){ showStatus('login-status','error','Pilih nama dulu.'); return; }
+    if(!pin){ showStatus('login-status','error','Masukkan PIN.'); return; }
+
+    const btn = document.getElementById('btn-login');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>Memeriksa…';
+    hideStatus('login-status');
+
+    try{
+      const res = await fetch('/api/employee-login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ employee_id: employeeId, pin })
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'Login gagal');
+      currentEmployee = data.employee;
+
+      if(currentAction === 'in'){
+        document.getElementById('captureTitle').textContent = 'Clock In';
+        document.getElementById('confirmRow').style.display = 'none';
+        go('screen-camera');
+        startCamera();
+        getGPS();
+      } else {
+        await submitPunch(null, null, null);
+      }
+    } catch(err){
+      showStatus('login-status','error', err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Lanjut';
+    }
+  }
+
+  function haversine(lat1,lon1,lat2,lon2){
+    const R = 6371000, toRad = d=>d*Math.PI/180;
+    const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return R * 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function getGPS(){
+    document.getElementById('loc-status-text').textContent = 'Mencari lokasi…';
+    document.getElementById('loc-badge').className = 'badge info';
+    document.getElementById('loc-badge').textContent = 'Mengecek…';
+    if(!navigator.geolocation){
+      document.getElementById('loc-status-text').textContent = 'GPS tidak didukung browser ini.';
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      currentPosition = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const dist = Math.round(haversine(currentPosition.lat, currentPosition.lng, NIRMALA.lat, NIRMALA.lng));
+      document.getElementById('loc-status-text').textContent = 'Jarak dari Nirmala Coffee';
+      document.getElementById('loc-dist').textContent = dist + ' m';
+      document.getElementById('loc-badge').className = 'badge ' + (dist <= 200 ? 'ok' : 'info');
+      document.getElementById('loc-badge').textContent = dist <= 200 ? 'Dalam radius 200 m' : 'Di luar radius — absen tetap tersimpan';
+    }, err=>{
+      document.getElementById('loc-status-text').textContent = 'Gagal ambil lokasi: ' + err.message;
+      document.getElementById('loc-badge').className = 'badge bad';
+      document.getElementById('loc-badge').textContent = 'Lokasi tidak terbaca';
+    }, { enableHighAccuracy:true, timeout:10000 });
+  }
+
+  async function startCamera(){
+    const video = document.getElementById('video');
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false });
+      video.srcObject = stream;
+      document.getElementById('camPlaceholder').style.display = 'none';
+      video.style.display = 'block';
+    } catch(err){
+      document.getElementById('camPlaceholder').textContent = 'Tidak bisa akses kamera: ' + err.message;
+    }
+  }
+  function stopCamera(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
+
+  function captureSelfie(){
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video,0,0);
+    canvas.toBlob(blob=>{
+      capturedBlob = blob;
+      const img = document.getElementById('capturedImg');
+      img.src = URL.createObjectURL(blob);
+      img.style.display = 'block';
+      video.style.display = 'none';
+      document.getElementById('shutterRow').style.display = 'none';
+      document.getElementById('retakeBtn').style.display = 'block';
+      document.getElementById('confirmRow').style.display = 'flex';
+    }, 'image/jpeg', 0.9);
+  }
+  function retakeSelfie(){
+    capturedBlob = null;
+    document.getElementById('capturedImg').style.display = 'none';
+    document.getElementById('video').style.display = 'block';
+    document.getElementById('shutterRow').style.display = 'flex';
+    document.getElementById('retakeBtn').style.display = 'none';
+    document.getElementById('confirmRow').style.display = 'none';
+    hideStatus('camera-status');
+  }
+  function cancelCapture(){ stopCamera(); go('screen-login'); }
+
+  async function confirmAndSubmit(){
+    if(!capturedBlob){ showStatus('camera-status','error','Ambil foto dulu.'); return; }
+    const btn = document.getElementById('btn-confirm');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span>Mengunggah…';
+    hideStatus('camera-status');
+    try{
+      const filename = `${currentEmployee.id}_${Date.now()}.jpg`;
+      const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/selfies/${filename}`, {
+        method:'POST',
+        headers:{ apikey: SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type':'image/jpeg' },
+        body: capturedBlob
+      });
+      if(!uploadRes.ok) throw new Error('Gagal upload foto: ' + (await uploadRes.text()));
+      const selfieUrl = `${SUPABASE_URL}/storage/v1/object/public/selfies/${filename}`;
+      btn.innerHTML = '<span class="loader"></span>Menyimpan…';
+      await submitPunch(currentPosition ? currentPosition.lat : null, currentPosition ? currentPosition.lng : null, selfieUrl);
+    } catch(err){
+      showStatus('camera-status','error', err.message);
+      btn.disabled = false;
+      btn.textContent = 'Konfirmasi & Kirim';
+    }
+  }
+
+  async function submitPunch(lat, lng, selfieUrl){
+    try{
+      const res = await fetch('/api/attendance-punch', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ employee_id: currentEmployee.id, action: currentAction, lat, lng, selfie_url: selfieUrl })
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'Gagal menyimpan absen');
+
+      stopCamera();
+      go('screen-receipt');
+      document.getElementById('r-name').textContent = currentEmployee.name;
+
+      if(currentAction === 'in'){
+        const rec = data.record;
+        document.getElementById('receipt-title').textContent = 'Clock In Berhasil';
+        document.getElementById('receipt-id').textContent = 'ID ' + (rec.id ? rec.id.slice(0,8) : '');
+        document.getElementById('receipt-photo-wrap').style.display = 'block';
+        document.getElementById('receipt-photo').src = selfieUrl;
+        document.getElementById('r-time-row').style.display = 'flex';
+        document.getElementById('r-time').textContent = new Date(rec.clock_in).toLocaleTimeString('id-ID');
+        document.getElementById('r-late-row').style.display = 'flex';
+        document.getElementById('r-late').textContent = rec.late_minutes + ' menit';
+        document.getElementById('r-deduct-row').style.display = 'flex';
+        document.getElementById('r-deduct').textContent = rec.deduction_pct + '%';
+        if(currentPosition){
+          const dist = Math.round(haversine(currentPosition.lat, currentPosition.lng, NIRMALA.lat, NIRMALA.lng));
+          document.getElementById('r-dist-row').style.display = 'flex';
+          document.getElementById('r-dist').textContent = dist + ' m dari toko';
+        } else {
+          document.getElementById('r-dist-row').style.display = 'none';
+        }
+      } else {
+        document.getElementById('receipt-title').textContent = 'Clock Out Berhasil';
+        document.getElementById('receipt-id').textContent = '';
+        document.getElementById('receipt-photo-wrap').style.display = 'none';
+        document.getElementById('r-time-row').style.display = 'none';
+        document.getElementById('r-late-row').style.display = 'none';
+        document.getElementById('r-deduct-row').style.display = 'none';
+        document.getElementById('r-dist-row').style.display = 'none';
+      }
+    } catch(err){
+      go('screen-receipt');
+      document.getElementById('receipt-stamp').textContent = 'GAGAL';
+      showStatus('result-error','error', err.message);
+    }
+  }
+
+  function resetForm(){
+    document.getElementById('employee').value = '';
+    document.getElementById('pin').value = '';
+    selectAction('in');
+    currentEmployee = null; currentPosition = null; capturedBlob = null;
+    hideStatus('login-status'); hideStatus('camera-status'); hideStatus('result-error');
+    document.getElementById('receipt-stamp').textContent = 'TERSIMPAN';
+    document.getElementById('video').style.display = 'block';
+    document.getElementById('capturedImg').style.display = 'none';
+    document.getElementById('shutterRow').style.display = 'flex';
+    document.getElementById('retakeBtn').style.display = 'none';
+    document.getElementById('confirmRow').style.display = 'none';
+    go('screen-login');
+  }
+</script>
+</body>
+</html>
