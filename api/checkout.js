@@ -43,23 +43,18 @@ export default async function handler(req, res) {
 
     // 1. Ambil harga menu terbaru dari DB (jangan percaya harga dari client)
     const menuNames = items.map((i) => i.menu_name);
-    const menuRows = await supabase(
-      'GET',
-      `nc_menu?name=in.(${menuNames.map(encodeURIComponent).join(',')})`
-    );
+    const encodedNames = menuNames.map(encodeURIComponent).join(',');
+    const [menuRows, recipeRows] = await Promise.all([
+      supabase('GET', `nc_menu?name=in.(${encodedNames})`),
+      supabase('GET', `nc_recipe?menu_name=in.(${encodedNames})`),
+    ]);
     const menuMap = Object.fromEntries(menuRows.map((m) => [m.name, m]));
-
+    
     for (const it of items) {
       if (!menuMap[it.menu_name]) {
         return res.status(400).json({ error: `Menu "${it.menu_name}" tidak ditemukan` });
       }
     }
-
-    // 2. Ambil resep untuk semua menu di keranjang
-    const recipeRows = await supabase(
-      'GET',
-      `nc_recipe?menu_name=in.(${menuNames.map(encodeURIComponent).join(',')})`
-    );
 
     // 3. Hitung total bahan baku yang harus dikurangi (agregat lintas item)
     const deduction = {}; // { ingredient_name: totalQty }
