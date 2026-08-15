@@ -340,16 +340,32 @@ function calcAssetValue(){
   },0);
 }
 // ══ STORAGE — Supabase ══
+// PostgREST default membatasi hasil query ke 1000 baris per request.
+// Kalau nc_sales/nc_restock sudah lebih dari 1000 baris, data lama (mis. Juni)
+// akan kepotong dan gak ke-load. fetchAllRows() ambil SEMUA baris via pagination
+// otomatis per 1000 baris sampai habis.
+async function fetchAllRows(table, orderCol, ascending){
+  const pageSize=1000;
+  let from=0, all=[], done=false;
+  while(!done){
+    const {data,error}=await sb.from(table).select('*').order(orderCol,{ascending}).range(from,from+pageSize-1);
+    if(error){console.error('fetchAllRows error on '+table,error);break;}
+    all=all.concat(data||[]);
+    if(!data||data.length<pageSize)done=true;
+    from+=pageSize;
+  }
+  return all;
+}
 async function loadAllData(){
-  const [invRes,restockRes,salesRes]=await Promise.all([
+  const [invRes,restock,sales]=await Promise.all([
     sb.from('nc_inventory').select('*'),
-    sb.from('nc_restock').select('*').order('ts',{ascending:false}),
-    sb.from('nc_sales').select('*').order('ts',{ascending:false}),
+    fetchAllRows('nc_restock','ts',false),
+    fetchAllRows('nc_sales','ts',false),
   ]);
   _inv={};
   (invRes.data||[]).forEach(r=>_inv[r.name]=parseFloat(r.stock)||0);
-  _restock=restockRes.data||[];
-  _sales=salesRes.data||[];
+  _restock=restock;
+  _sales=sales;
 }
 function getInv(){return _inv||{};}
 function getRestock(){return _restock||[];}
