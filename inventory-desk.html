@@ -649,7 +649,7 @@ function renderInventory(){
   return '<div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:36px;">'+
     '<div><div class="page-title">Inventory.</div>'+
     '<div class="page-subtitle">Stok bahan baku real-time &nbsp;·&nbsp; <strong>Nilai Aset Total: '+fmtRp(totalAsset)+'</strong></div></div>'+
-    '<div style="display:flex;gap:10px;"><button class="btn-ghost" onclick="exportCSV()">⬇ Export CSV</button><button class="btn-ghost" style="border-color:var(--danger);color:var(--danger);" onclick="openResetModal()">↺ Reset</button></div>'+
+    '<div style="display:flex;gap:10px;"><button class="btn-ghost" onclick="openExportModal()">⬇ Export Laporan</button><button class="btn-ghost" style="border-color:var(--danger);color:var(--danger);" onclick="openResetModal()">↺ Reset</button></div>'+
     '</div>'+
     '<table class="data-table"><thead><tr><th>Bahan</th><th>Stok</th><th>ROP</th><th>Status</th><th>Nilai Aset</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
