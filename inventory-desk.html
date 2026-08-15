@@ -913,12 +913,37 @@ function setExportPeriod(p){
     field.innerHTML='<label class="form-label">Pilih Tanggal (dalam minggu tsb)</label>'+
       '<input type="date" class="form-input" id="exp-date" value="'+t+'" oninput="updateWeekPreview()">'+
       '<div id="week-preview" style="font-size:12px;color:var(--mist);margin-top:-12px;margin-bottom:20px;"></div>';
-  } else {
-    const ym=t.slice(0,7);
-    field.innerHTML='<label class="form-label">Pilih Bulan</label><input type="month" class="form-input" id="exp-month" value="'+ym+'">'+
-      '<div style="font-size:12px;color:var(--mist);margin-top:-12px;margin-bottom:20px;">Bisa pilih bulan sebelumnya juga — laporan diambil dari data yang sudah tercatat di bulan tsb.</div>';
+} else {
+    const nowY=new Date().getFullYear(), nowM=new Date().getMonth()+1;
+    let yearOpts='';
+    for(let y=nowY;y>=nowY-4;y--)yearOpts+='<option value="'+y+'">'+y+'</option>';
+    field.innerHTML='<label class="form-label">Pilih Bulan</label>'+
+      '<div style="display:flex;gap:10px;">'+
+        '<select class="form-input" id="exp-month-sel" style="margin-bottom:8px;flex:1;" onchange="renderExportMonthOptions()"></select>'+
+        '<select class="form-input" id="exp-year-sel" style="margin-bottom:8px;flex:1;" onchange="renderExportMonthOptions()">'+yearOpts+'</select>'+
+      '</div>'+
+      '<div style="font-size:12px;color:var(--mist);margin-bottom:20px;">Bisa pilih bulan sebelumnya — laporan diambil dari data yang sudah tercatat di bulan tsb. Bulan yang belum berjalan tidak bisa dipilih.</div>';
+    document.getElementById('exp-year-sel').value=nowY;
+    renderExportMonthOptions();
   }
   if(p==='mingguan')setTimeout(updateWeekPreview,0);
+}
+
+function renderExportMonthOptions(){
+  const nowY=new Date().getFullYear(), nowM=new Date().getMonth()+1;
+  const yearSel=document.getElementById('exp-year-sel');
+  const monthSel=document.getElementById('exp-month-sel');
+  if(!yearSel||!monthSel)return;
+  const selY=parseInt(yearSel.value,10);
+  const monthNames=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const prevVal=parseInt(monthSel.value,10)||nowM;
+  let opts='';
+  for(let m=1;m<=12;m++){
+    const isFuture = selY===nowY && m>nowM;
+    opts+='<option value="'+m+'"'+(isFuture?' disabled':'')+'>'+monthNames[m-1]+'</option>';
+  }
+  monthSel.innerHTML=opts;
+  monthSel.value = (selY===nowY && prevVal>nowM) ? nowM : prevVal;
 }
 
 function getMondayOf(dateStr){
