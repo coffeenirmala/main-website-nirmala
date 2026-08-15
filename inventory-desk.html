@@ -975,9 +975,14 @@ function computeRange(){
     const fmtD=x=>x.toISOString().split('T')[0];
     return {start:fmtD(mon),end:fmtD(sun),label:fmtD(mon)+'_sd_'+fmtD(sun)};
   }
-  const ym=document.getElementById('exp-month').value;
-  if(!ym)return{start:null,end:null,label:null};
-  const [y,m]=ym.split('-').map(Number);
+  const mSel=document.getElementById('exp-month-sel'), ySel=document.getElementById('exp-year-sel');
+  if(!mSel||!ySel||!mSel.value||!ySel.value)return{start:null,end:null,label:null};
+  const m=parseInt(mSel.value,10), y=parseInt(ySel.value,10);
+  const now=new Date();
+  if(y>now.getFullYear() || (y===now.getFullYear() && m>now.getMonth()+1)){
+    return {start:null,end:null,label:null,future:true};
+  }
+  const ym=y+'-'+String(m).padStart(2,'0');
   const start=ym+'-01';
   const lastDay=new Date(y,m,0).getDate();
   const end=ym+'-'+String(lastDay).padStart(2,'0');
