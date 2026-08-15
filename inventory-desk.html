@@ -991,9 +991,9 @@ function computeRange(){
 
 function doExport(){
   const range=computeRange();
+  if(range.future){toast('Bulan tersebut belum berjalan, tidak bisa didownload','wrn');return;}
   if(!range.start){toast('Pilih periode dulu','wrn');return;}
   if(typeof XLSX==='undefined'){toast('Gagal memuat modul xlsx, cek koneksi internet','err');return;}
-
   const sales=getSales().filter(s=>s.date>=range.start&&s.date<=range.end);
   const restock=getRestock().filter(r=>r.date>=range.start&&r.date<=range.end);
 
