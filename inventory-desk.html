@@ -858,56 +858,136 @@ function showMenuDetail(enc){
   showModal();
 }
 
-// ══ EXPORT CSV (REVISED) ══
-function exportCSV(){
-  const inv=getInv(), restock=getRestock(), sales=getSales();
-  
-  // Menambahkan 'sep=;' di awal agar Excel otomatis tahu pemisah kolomnya adalah titik koma
-  let csv = 'sep=;\n'; 
-  csv += 'NIRMALA COFFEE DATA EXPORT;\n';
-  csv += 'Diekspor: ' + new Date().toLocaleString('id-ID') + ';\n\n';
-  
-  // === INVENTORY & VALUASI ASET ===
-  csv += '=== INVENTORY & VALUASI ASET ===;;;;;;\n';
-  csv += 'Bahan;Stok;Satuan;ROP;Status;Harga Satuan (Rp);Nilai Aset (Rp)\n';
-  
-  INVENTORY_DEF.forEach(i => {
-    const stock = inv[i.name] ?? 0;
-    const hp = UNIT_PRICES[i.name] ?? 0;
-    
-    // Menggunakan titik koma (;) dan membungkus string dengan kutip ganda jika ada koma/spasi
-    csv += '"' + i.name + '";' + 
-           stock + ';' + 
-           '"' + i.unit + '";' + 
-           '"' + (i.ropLabel || i.rop || '—') + '";' + 
-           '"' + stockStatus(i.name) + '";' + 
-           hp + ';' + 
-           (stock * hp).toFixed(0) + '\n';
+// ══ EXPORT LAPORAN (.xlsx — 2 sheet: Log Harian & Ringkasan Pemakaian) ══
+// Sumber data: nc_sales (Pemakaian) + nc_restock (Restock Masuk), difilter by tanggal.
+// Tidak pakai snapshot stok bulanan — supaya tetap simpel & minim maintenance.
+
+let _expPeriod = 'harian';
+
+function openExportModal(){
+  document.getElementById('modal-inner').innerHTML=
+    '<div class="modal-title">Export Laporan</div>'+
+    '<label class="form-label">Periode</label>'+
+    '<div style="display:flex;gap:8px;margin-bottom:20px;">'+
+      '<button type="button" class="btn-ghost" id="ep-harian" style="flex:1;" onclick="setExportPeriod(\'harian\')">Harian</button>'+
+      '<button type="button" class="btn-ghost" id="ep-mingguan" style="flex:1;" onclick="setExportPeriod(\'mingguan\')">Mingguan</button>'+
+      '<button type="button" class="btn-ghost" id="ep-bulanan" style="flex:1;" onclick="setExportPeriod(\'bulanan\')">Bulanan</button>'+
+    '</div>'+
+    '<div id="export-period-field"></div>'+
+    '<div style="font-size:11px;color:var(--mist);background:var(--cream);padding:10px 14px;border-radius:4px;margin-bottom:8px;line-height:1.6;">File .xlsx berisi 2 sheet: <strong>Log Harian</strong> (semua aktivitas pemakaian & restock) dan <strong>Ringkasan Pemakaian</strong> (total pemakaian per bahan, dihitung otomatis dari Log Harian).</div>'+
+    '<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Batal</button><button class="btn-full" style="flex:1;" onclick="doExport()">⬇ Download .xlsx</button></div>';
+  showModal();
+  setExportPeriod('harian');
+}
+
+function setExportPeriod(p){
+  _expPeriod=p;
+  ['harian','mingguan','bulanan'].forEach(id=>{
+    const btn=document.getElementById('ep-'+id);
+    if(btn){
+      btn.style.background = id===p ? 'var(--ink)' : 'transparent';
+      btn.style.color = id===p ? 'var(--paper)' : 'var(--ink)';
+    }
   });
-  
-  csv += '\nTotal Nilai Aset (Rp);' + calcAssetValue().toFixed(0) + ';;;;;\n\n';
-  
-  // === RESTOCK LOG ===
-  csv += '=== RESTOCK LOG ===;;;;;\n';
-  csv += 'Tanggal;Bahan;Qty;Satuan;Harga Beli (Rp);Catatan\n';
-  restock.forEach(r => {
-    csv += '"' + r.date + '";"' + r.item + '";' + r.qty + ';"' + r.unit + '";' + (r.price || 0) + ';"' + (r.note || '') + '"\n';
+  const field=document.getElementById('export-period-field');
+  const t=today();
+  if(p==='harian'){
+    field.innerHTML='<label class="form-label">Pilih Tanggal</label><input type="date" class="form-input" id="exp-date" value="'+t+'">';
+  } else if(p==='mingguan'){
+    field.innerHTML='<label class="form-label">Pilih Tanggal (dalam minggu tsb)</label>'+
+      '<input type="date" class="form-input" id="exp-date" value="'+t+'" oninput="updateWeekPreview()">'+
+      '<div id="week-preview" style="font-size:12px;color:var(--mist);margin-top:-12px;margin-bottom:20px;"></div>';
+  } else {
+    const ym=t.slice(0,7);
+    field.innerHTML='<label class="form-label">Pilih Bulan</label><input type="month" class="form-input" id="exp-month" value="'+ym+'">'+
+      '<div style="font-size:12px;color:var(--mist);margin-top:-12px;margin-bottom:20px;">Bisa pilih bulan sebelumnya juga — laporan diambil dari data yang sudah tercatat di bulan tsb.</div>';
+  }
+  if(p==='mingguan')setTimeout(updateWeekPreview,0);
+}
+
+function getMondayOf(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const day=d.getDay();
+  const diff = day===0 ? -6 : 1-day;
+  d.setDate(d.getDate()+diff);
+  return d;
+}
+function updateWeekPreview(){
+  const el=document.getElementById('exp-date');
+  const prev=document.getElementById('week-preview');
+  if(!el||!prev)return;
+  const mon=getMondayOf(el.value);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  const opt={day:'numeric',month:'short'};
+  prev.textContent='Minggu: '+mon.toLocaleDateString('id-ID',opt)+' – '+sun.toLocaleDateString('id-ID',opt);
+}
+
+function computeRange(){
+  if(_expPeriod==='harian'){
+    const d=document.getElementById('exp-date').value;
+    return {start:d,end:d,label:d};
+  }
+  if(_expPeriod==='mingguan'){
+    const d=document.getElementById('exp-date').value;
+    const mon=getMondayOf(d);
+    const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+    const fmtD=x=>x.toISOString().split('T')[0];
+    return {start:fmtD(mon),end:fmtD(sun),label:fmtD(mon)+'_sd_'+fmtD(sun)};
+  }
+  const ym=document.getElementById('exp-month').value;
+  if(!ym)return{start:null,end:null,label:null};
+  const [y,m]=ym.split('-').map(Number);
+  const start=ym+'-01';
+  const lastDay=new Date(y,m,0).getDate();
+  const end=ym+'-'+String(lastDay).padStart(2,'0');
+  return {start,end,label:ym};
+}
+
+function doExport(){
+  const range=computeRange();
+  if(!range.start){toast('Pilih periode dulu','wrn');return;}
+  if(typeof XLSX==='undefined'){toast('Gagal memuat modul xlsx, cek koneksi internet','err');return;}
+
+  const sales=getSales().filter(s=>s.date>=range.start&&s.date<=range.end);
+  const restock=getRestock().filter(r=>r.date>=range.start&&r.date<=range.end);
+
+  const combined=[
+    ...sales.map(s=>({date:s.date,ts:s.ts,item:s.item,type:'Pemakaian',qty:s.qty,unit:s.unit,note:''})),
+    ...restock.map(r=>({date:r.date,ts:r.ts,item:r.item,type:'Restock Masuk',qty:r.qty,unit:r.unit,note:(r.price?fmtRp(r.price):'')+(r.note?' · '+r.note:'')}))
+  ].sort((a,b)=>a.ts-b.ts);
+
+  const logRows=[['Tanggal','Waktu','Bahan','Tipe','Qty','Satuan','Catatan/Harga']];
+  combined.forEach(row=>{
+    const waktu=new Date(row.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    logRows.push([row.date,waktu,row.item,row.type,row.qty,row.unit,row.note]);
   });
-  
-  csv += '\n=== AKTIVITAS STOK ===;;;\n';
-  csv += 'Tanggal;Bahan;Qty;Satuan\n';
-  sales.forEach(s => {
-    csv += '"' + s.date + '";"' + (s.item || '') + '";' + (s.qty || '') + ';"' + (s.unit || '') + '"\n';
+  if(combined.length===0)logRows.push(['—','—','Tidak ada aktivitas pada periode ini','—','—','—','—']);
+
+  const usageMap={};
+  sales.forEach(s=>{
+    if(!usageMap[s.item])usageMap[s.item]={total:0,unit:s.unit};
+    usageMap[s.item].total+=s.qty;
   });
-  
-  // Tambahkan BOM (Byte Order Mark) UTF-8 agar karakter spesial/aksen terbaca dengan sempurna di Excel
-  const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
-  
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'nirmala-' + today() + '.csv';
-  a.click();
-  toast('CSV berhasil diexport', 'ok');
+  const summaryRows=[['Nama Bahan Baku','Penggunaan','Satuan']];
+  Object.entries(usageMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d])=>{
+    summaryRows.push([name,Number(d.total.toFixed(2)),d.unit]);
+  });
+  if(Object.keys(usageMap).length===0)summaryRows.push(['—','Tidak ada pemakaian pada periode ini','—']);
+
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.aoa_to_sheet(logRows);
+  const ws2=XLSX.utils.aoa_to_sheet(summaryRows);
+  ws1['!cols']=[{wch:12},{wch:8},{wch:20},{wch:14},{wch:10},{wch:8},{wch:24}];
+  ws2['!cols']=[{wch:20},{wch:14},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws1,'Log Harian');
+  XLSX.utils.book_append_sheet(wb,ws2,'Ringkasan Pemakaian');
+
+  const periodLabel = _expPeriod==='harian' ? 'harian-'+range.start
+                     : _expPeriod==='mingguan' ? 'mingguan-'+range.label
+                     : 'bulanan-'+range.label;
+  XLSX.writeFile(wb,'nirmala-'+periodLabel+'.xlsx');
+  closeModal();
+  toast('Laporan .xlsx berhasil diexport','ok');
 }
 
 // ══ MODAL ══
