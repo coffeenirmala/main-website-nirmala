@@ -1009,17 +1009,33 @@ function doExport(){
   });
   if(combined.length===0)logRows.push(['—','—','Tidak ada aktivitas pada periode ini','—','—','—','—']);
 
+// Hanya baris type:'manual' (bahan baku gramasi) yang masuk Ringkasan Pemakaian.
+  // type:'pos_sale' = nama menu (mis. "Matcha Latte", "V60" sbg minuman) — bukan bahan, di-skip.
   const usageMap={};
-  sales.forEach(s=>{
+  sales.filter(s=>s.type==='manual').forEach(s=>{
     if(!usageMap[s.item])usageMap[s.item]={total:0,unit:s.unit};
     usageMap[s.item].total+=s.qty;
   });
-  const summaryRows=[['Nama Bahan Baku','Penggunaan','Satuan']];
-  Object.entries(usageMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d])=>{
-    summaryRows.push([name,Number(d.total.toFixed(2)),d.unit]);
-  });
-  if(Object.keys(usageMap).length===0)summaryRows.push(['—','Tidak ada pemakaian pada periode ini','—']);
 
+  const summaryRows=[['Nama Bahan Baku','Penggunaan','Satuan','Total Nominal Terpakai (Rp)']];
+  let totalNominalAll=0;
+  Object.entries(usageMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d])=>{
+    const hargaSatuan = UNIT_PRICES[name] ?? 0; // Rp per gr/ml/pcs, dari master di atas
+    const nominal = d.total * hargaSatuan;
+    totalNominalAll += nominal;
+    summaryRows.push([
+      name,
+      Number(d.total.toFixed(2)),
+      d.unit,
+      hargaSatuan > 0 ? Math.round(nominal) : '—' // '—' kalau harga satuan belum ada di UNIT_PRICES
+    ]);
+  });
+
+  if(Object.keys(usageMap).length===0){
+    summaryRows.push(['—','Tidak ada pemakaian pada periode ini','—','—']);
+  } else {
+    summaryRows.push(['TOTAL','','',Math.round(totalNominalAll)]);
+  }
   const wb=XLSX.utils.book_new();
   const ws1=XLSX.utils.aoa_to_sheet(logRows);
   const ws2=XLSX.utils.aoa_to_sheet(summaryRows);
