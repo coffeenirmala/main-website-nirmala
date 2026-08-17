@@ -1020,21 +1020,21 @@ function doExport(){
   const summaryRows=[['Nama Bahan Baku','Penggunaan','Satuan','Total Nominal Terpakai (Rp)']];
   let totalNominalAll=0;
   Object.entries(usageMap).sort((a,b)=>b[1].total-a[1].total).forEach(([name,d])=>{
-    const hargaSatuan = UNIT_PRICES[name] ?? 0; // Rp per gr/ml/pcs, dari master di atas
+    const hargaSatuan = UNIT_PRICES[name] ?? 0;
     const nominal = d.total * hargaSatuan;
     totalNominalAll += nominal;
     summaryRows.push([
       name,
       Number(d.total.toFixed(2)),
       d.unit,
-      hargaSatuan > 0 ? Math.round(nominal) : '—' // '—' kalau harga satuan belum ada di UNIT_PRICES
+      hargaSatuan > 0 ? fmtRp(Math.round(nominal)) : '—' // ← format "Rp 1.200.000"
     ]);
   });
 
   if(Object.keys(usageMap).length===0){
     summaryRows.push(['—','Tidak ada pemakaian pada periode ini','—','—']);
   } else {
-    summaryRows.push(['TOTAL','','',Math.round(totalNominalAll)]);
+    summaryRows.push(['TOTAL','','',fmtRp(Math.round(totalNominalAll))]);
   }
   const wb=XLSX.utils.book_new();
   const ws1=XLSX.utils.aoa_to_sheet(logRows);
