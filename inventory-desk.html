@@ -317,19 +317,20 @@ const RECIPES = {
 // Rumus: Harga Beli Kemasan ÷ Isi Kemasan = Harga per Satuan
 // Contoh: Arabica Rp 90.000 / 100 gr = Rp 900 per gr
 const UNIT_PRICES = {
-  'blend':          180,   // Rp 90.000 / 100 gr
+  'blend':          900,   // Rp 90.000 / 100 gr
   'Creamer':         80,   // Rp 40.000 / 500 gr
-  'Susu':            14.3,   // Rp 20.000 / 1.000 ml
+  'Susu':            20,   // Rp 20.000 / 1.000 ml
   'SKM':             40,   // Rp 20.000 / 500 ml
   'Pistachio':      250,   // Rp 75.000 / 300 ml
-  'Matcha':        250,   // Rp 125.000 / 50 gr
-  'V60':           200,   // Rp 100.000 / 50 gr
+  'Matcha':        2500,   // Rp 125.000 / 50 gr
+  'V60':           2000,   // Rp 100.000 / 50 gr
   'Soda':          3500,   // Rp 3.500 / pcs
   'Mix Berry':      180,   // Rp 54.000 / 300 ml
-  'Lemon':          100,   // Rp 30.000 / 300 ml
+  'sirup Lemon':    100,   // Rp 30.000 / 300 ml
   'Jeruk nipis':   1500,   // Rp 1.500 / pcs
 };
 
+  
 // Nilai Aset = Σ (Stok Tersisa × Harga per Satuan)
 function calcAssetValue(){
   const inv=getInv();
