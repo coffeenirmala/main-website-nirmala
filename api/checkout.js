@@ -92,7 +92,7 @@ export default async function handler(req, res) {
       }));
     }
 
-    // 5. Catat penjualan ke nc_sales (satu baris per menu item)
+// 5a. Catat penjualan ke nc_sales (satu baris per menu item) — dipakai sales-report.js untuk omzet
     const salesPayload = items.map((it) => ({
       date: dateStr,
       ts,
@@ -101,7 +101,22 @@ export default async function handler(req, res) {
       qty: it.qty,
       unit: 'pcs',
     }));
-    await supabase('POST', 'nc_sales', salesPayload);
+
+    // 5b. Catat pemakaian bahan baku per gramasi (dari `deduction` di langkah 3) —
+    // type:'manual' supaya kebaca sama seperti input manual barista di Forecast,
+    // Dashboard, dan Export Laporan (Log Harian & Ringkasan Pemakaian).
+    const unitMap = {};
+    for (const r of recipeRows) unitMap[r.ingredient_name] = r.unit;
+    const ingredientSalesPayload = ingredientNames.map((ing) => ({
+      date: dateStr,
+      ts,
+      type: 'manual',
+      item: ing,
+      qty: Number(deduction[ing].toFixed(3)),
+      unit: unitMap[ing] || '',
+    }));
+
+    await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload]);
 
     // 6. Loyalty punch (kalau ada customer)
     let punchResult = null;
