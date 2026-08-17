@@ -1024,7 +1024,7 @@ function doExport(){
   const ws1=XLSX.utils.aoa_to_sheet(logRows);
   const ws2=XLSX.utils.aoa_to_sheet(summaryRows);
   ws1['!cols']=[{wch:12},{wch:8},{wch:20},{wch:14},{wch:10},{wch:8},{wch:24}];
-  ws2['!cols']=[{wch:20},{wch:14},{wch:10}];
+  ws2['!cols']=[{wch:20},{wch:14},{wch:10},{wch:22}];
   XLSX.utils.book_append_sheet(wb,ws1,'Log Harian');
   XLSX.utils.book_append_sheet(wb,ws2,'Ringkasan Pemakaian');
 
