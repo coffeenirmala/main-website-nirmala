@@ -305,9 +305,26 @@ function switchTab(tab) {
 // ---------- Init ----------
 async function initApp() {
   await loadMenuData();
+  renderCategoryFilter();
   renderMenu();
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById('report-date').value = today;
+}
+
+// ---------- Kasir: filter kategori ----------
+function renderCategoryFilter() {
+  const bar = document.getElementById('cat-filter-bar');
+  const chips = ['all', ...MENU_CATEGORIES];
+  bar.innerHTML = chips.map(cat => {
+    const label = cat === 'all' ? 'Semua' : cat;
+    const active = selectedCategory === cat ? 'active' : '';
+    return `<button class="cat-chip ${active}" onclick="selectCategory('${cat}')">${label}</button>`;
+  }).join('');
+}
+function selectCategory(cat) {
+  selectedCategory = cat;
+  renderCategoryFilter();
+  renderMenu();
 }
 
 async function loadMenuData() {
