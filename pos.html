@@ -371,7 +371,8 @@ let redeemMode = false;     // true = barista sedang memilih item mana yang digr
 let redeemItemName = null;  // menu_name item yang dipilih gratis
 let allPromos = [];         // semua promo dari nc_promos
 let selectedPromoId = null; // id promo yang sedang dipakai di transaksi ini
-
+let selectedPayment = null; // 'cash' | 'qris' — wajib dipilih sebelum checkout
+  
 // ---------- PIN ----------
 function pressKey(k) {
   if (k === 'del') { pin = pin.slice(0, -1); }
