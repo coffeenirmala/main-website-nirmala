@@ -56,7 +56,9 @@ export default async function handler(req, res) {
 
     let grandTotal = 0;
     const rows = sales.map((s) => {
-      const price = priceMap[s.item] ?? 0;
+      // pos_sale_free = 1 pcs yang digratiskan lewat redeem loyalty — tampil Rp 0, tidak masuk omzet
+      const isFree = s.type === 'pos_sale_free';
+      const price = isFree ? 0 : (priceMap[s.item] ?? 0);
       const subtotal = s.type === 'pos_sale' ? price * s.qty : 0;
       if (s.type === 'pos_sale') grandTotal += subtotal;
       return {
@@ -64,7 +66,7 @@ export default async function handler(req, res) {
         item: s.item,
         qty: s.qty,
         unit: s.unit,
-        type: s.type,
+        type: isFree ? 'redeem_gratis' : s.type,
         price,
         subtotal,
       };
