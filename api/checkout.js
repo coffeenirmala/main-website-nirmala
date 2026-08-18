@@ -30,14 +30,19 @@ export default async function handler(req, res) {
   try {
     let body = req.body;
     if (typeof body === 'string') body = JSON.parse(body);
-    const { items, customer_email, redeem_free, redeem_item, promo_id } = body;
+    const { items, customer_email, redeem_free, redeem_item, promo_id, payment_type } = body;
     // items: [{ menu_name, qty }] — menu_name bisa nama menu biasa ATAU nama promo bundle/bundle_qty
     // redeem_free: true kalau barista memilih 1 item untuk digratiskan
     // redeem_item: menu_name item yang digratiskan (wajib kalau redeem_free true, HARUS menu biasa)
     // promo_id: id promo diskon (nc_promos) yang dipakai — tidak boleh bareng redeem_free
+    // payment_type: 'cash' atau 'qris' — wajib diisi setiap transaksi
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Keranjang kosong' });
+    }
+
+    if (payment_type !== 'cash' && payment_type !== 'qris') {
+      return res.status(400).json({ error: 'Metode pembayaran wajib diisi (cash atau qris)' });
     }
 
     if (redeem_free && !redeem_item) {
