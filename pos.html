@@ -426,17 +426,26 @@ function renderMenu() {
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(m);
   });
+  // bundle promo aktif ikut muncul sebagai kartu menu, kategori terpisah "Promo Bundle"
+  const bundles = activePromos().filter(p => p.type === 'bundle')
+    .filter(p => p.name.toLowerCase().includes(q) && (selectedCategory === 'all' || selectedCategory === 'Promo Bundle'));
+  if (bundles.length) grouped['Promo Bundle'] = bundles;
+
   const container = document.getElementById('menu-items-container');
-  if (!filtered.length) { container.innerHTML = '<div class="empty">Menu tidak ditemukan</div>'; return; }
+  if (!filtered.length && !bundles.length) { container.innerHTML = '<div class="empty">Menu tidak ditemukan</div>'; return; }
   container.innerHTML = Object.keys(grouped).map(cat => `
     <div class="category-label">${cat}</div>
     <div class="menu-items">
-      ${grouped[cat].map(m => `
-        <div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.price})">
-          <div class="name">${m.name}</div>
-          <div class="price">Rp ${m.price.toLocaleString('id-ID')}</div>
-        </div>
-      `).join('')}
+      ${grouped[cat].map(m => m.type === 'bundle'
+        ? `<div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.bundle_price})">
+             <div class="name">🎁 ${m.name}</div>
+             <div class="price">Rp ${m.bundle_price.toLocaleString('id-ID')}</div>
+           </div>`
+        : `<div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.price})">
+             <div class="name">${m.name}</div>
+             <div class="price">Rp ${m.price.toLocaleString('id-ID')}</div>
+           </div>`
+      ).join('')}
     </div>
   `).join('');
 }
