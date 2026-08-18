@@ -895,6 +895,108 @@ async function renderKelolaMenu() {
   }).join('');
 }
 
+// ---------- Kelola Promo ----------
+function togglePromoTypeFields() {
+  const type = document.getElementById('promo-type').value;
+  ['discount_percent', 'discount_fixed', 'bundle'].forEach(t => {
+    document.getElementById('fields-' + t).classList.toggle('show', t === type);
+  });
+}
+
+async function addPromo() {
+  const name = document.getElementById('promo-name').value.trim();
+  const type = document.getElementById('promo-type').value;
+  const valid_from = document.getElementById('promo-from').value;
+  const valid_until = document.getElementById('promo-until').value;
+  if (!name || !valid_from || !valid_until) { showToast('Nama & tanggal wajib diisi'); return; }
+  if (valid_until < valid_from) { showToast('Tanggal selesai tidak boleh sebelum tanggal mulai'); return; }
+
+  const payload = { action: 'upsert_promo', name, type, valid_from, valid_until, active: true };
+  if (type === 'discount_percent') {
+    payload.discount_percent = parseFloat(document.getElementById('promo-discount-percent').value);
+    if (!payload.discount_percent) { showToast('Isi persen diskon'); return; }
+  } else if (type === 'discount_fixed') {
+    payload.discount_fixed = parseFloat(document.getElementById('promo-discount-fixed').value);
+    if (!payload.discount_fixed) { showToast('Isi potongan Rp'); return; }
+  } else if (type === 'bundle') {
+    payload.bundle_items = document.getElementById('promo-bundle-items').value.trim();
+    payload.bundle_price = parseFloat(document.getElementById('promo-bundle-price').value);
+    if (!payload.bundle_items || !payload.bundle_price) { showToast('Lengkapi item & harga bundle'); return; }
+  }
+
+  try {
+    const res = await fetch('/api/promos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    document.getElementById('promo-name').value = '';
+    document.getElementById('promo-discount-percent').value = '';
+    document.getElementById('promo-discount-fixed').value = '';
+    document.getElementById('promo-bundle-items').value = '';
+    document.getElementById('promo-bundle-price').value = '';
+    document.getElementById('promo-from').value = '';
+    document.getElementById('promo-until').value = '';
+    showToast('Promo tersimpan');
+    await loadPromoData();
+    renderPromoManage();
+    renderMenu();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function togglePromoActive(id, current) {
+  try {
+    await fetch('/api/promos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle_promo', id, active: !current }),
+    });
+    await loadPromoData();
+    renderPromoManage();
+    renderMenu();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+}
+
+async function deletePromo(id) {
+  if (!confirm('Hapus promo ini?')) return;
+  await fetch('/api/promos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete_promo', id }),
+  });
+  await loadPromoData();
+  renderPromoManage();
+  renderMenu();
+}
+
+function renderPromoManage() {
+  const container = document.getElementById('promo-manage-list');
+  if (!container) return;
+  if (!allPromos.length) { container.innerHTML = '<div class="empty">Belum ada promo, tambahkan di atas.</div>'; return; }
+  const statusLabel = { aktif: 'Aktif', belum: 'Belum Mulai', selesai: 'Selesai' };
+  container.innerHTML = allPromos.map(p => {
+    const st = promoStatus(p);
+    const detail = p.type === 'discount_percent' ? `Diskon ${p.discount_percent}%`
+      : p.type === 'discount_fixed' ? `Potongan Rp ${p.discount_fixed.toLocaleString('id-ID')}`
+      : `Bundle: ${p.bundle_items} · Rp ${p.bundle_price.toLocaleString('id-ID')}`;
+    return `
+      <div class="promo-list-item">
+        <div class="top">
+          <strong>${p.name}</strong>
+          <span class="promo-status ${st}">${statusLabel[st]}</span>
+        </div>
+        <div class="meta">${detail} · ${p.valid_from} s/d ${p.valid_until}</div>
+        <div class="meta">
+          <button class="small-btn" style="color:#3C3489" onclick="togglePromoActive(${p.id}, ${p.active})">${p.active ? 'nonaktifkan' : 'aktifkan'}</button>
+          &nbsp;·&nbsp;
+          <button class="small-btn" onclick="deletePromo(${p.id})">hapus</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 // ---------- Toast ----------
 function showToast(msg) {
   const t = document.getElementById('toast');
