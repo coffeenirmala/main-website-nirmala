@@ -1076,7 +1076,7 @@ function renderPromoManage() {
   const container = document.getElementById('promo-manage-list');
   if (!container) return;
   if (!allPromos.length) { container.innerHTML = '<div class="empty">Belum ada promo, tambahkan di atas.</div>'; return; }
-  const statusLabel = { aktif: 'Aktif', belum: 'Belum Mulai', selesai: 'Selesai' };
+  const statusLabel = { aktif: 'Aktif', belum: 'Belum Mulai', selesai: 'Selesai', tutup: 'Tutup Hari Ini' };
   container.innerHTML = allPromos.map(p => {
     const st = promoStatus(p);
     const detail = p.type === 'discount_percent' ? `Diskon ${p.discount_percent}% ${p.applicable_menus ? '(khusus: ' + p.applicable_menus + ')' : '(semua menu)'}`
