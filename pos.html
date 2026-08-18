@@ -469,6 +469,7 @@ function clearCart() {
 function startRedeemPick() {
   if (!customerPunch || customerPunch.punches < PUNCHES_FOR_FREE) return;
   if (!cart.length) { showToast('Keranjang masih kosong'); return; }
+  selectedPromoId = null; // redeem gratis & promo diskon tidak boleh numpuk
   redeemMode = true;
   redeemItemName = null;
   renderCart();
