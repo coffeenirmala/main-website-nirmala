@@ -616,7 +616,7 @@ function renderCart() {
     }
   }
   document.getElementById('cart-total-val').textContent = 'Rp ' + Math.max(0, total).toLocaleString('id-ID');
-  document.getElementById('btn-checkout').disabled = cart.length === 0;
+  document.getElementById('btn-checkout').disabled = cart.length === 0 || !selectedPayment;
   renderPromoBox();
 }
 
