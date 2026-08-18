@@ -48,7 +48,7 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .cat-filter-bar { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 0.75rem; padding-bottom: 2px; }
 .cat-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 0.5px solid #ddd; background: #fff; font-size: 12px; font-weight: 500; color: #666; cursor: pointer; white-space: nowrap; }
 .cat-chip.active { background: #3C3489; color: #fff; border-color: #3C3489; }
-  
+
 .cart-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; height: fit-content; }
 .cart-title { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
 .cart-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid #f0f0f0; font-size: 13px; }
@@ -125,7 +125,6 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 .promo-menu-picker label { display: flex; align-items: center; gap: 4px; font-size: 12px; background: #f5f4f0; padding: 4px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 
 .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
-  
 .toast.show { opacity: 1; }
 .empty { text-align: center; padding: 1.5rem; color: #888; font-size: 13px; }
 </style>
@@ -384,7 +383,7 @@ function switchTab(tab) {
   if (tab === 'laporan') loadReport();
   if (tab === 'kelola') { renderKelolaMenu(); renderPromoMenuPickers(); renderPromoManage(); }
 }
-  
+
 // ---------- Init ----------
 async function initApp() {
   await loadMenuData();
@@ -578,6 +577,15 @@ function renderCart() {
   renderPromoBox();
 }
 
+// Hitung subtotal item yang benar-benar kena diskon promo ini
+// (kalau promo punya applicable_menus, cuma item di daftar itu yang dihitung; kalau
+// applicable_menus kosong/null, promo berlaku untuk seluruh isi keranjang).
+function discountableSubtotal(p) {
+  if (!p.applicable_menus) return cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const allowed = p.applicable_menus.split(',').map(x => x.trim());
+  return cart.reduce((s, c) => s + (allowed.includes(c.menu_name) ? c.price * c.qty : 0), 0);
+}
+
 // ---------- Promo: pilih/batal di keranjang ----------
 function renderPromoBox() {
   const box = document.getElementById('promo-box');
@@ -587,11 +595,13 @@ function renderPromoBox() {
     box.innerHTML = '<div class="promo-box" style="color:#888">Promo tidak bisa dipakai bareng redeem gratis loyalty.</div>';
     return;
   }
-  const list = activePromos().filter(p => p.type !== 'bundle');
+  const list = activePromos()
+    .filter(p => p.type === 'discount_percent' || p.type === 'discount_fixed')
+    .filter(p => !p.applicable_menus || cart.some(c => p.applicable_menus.split(',').map(x => x.trim()).includes(c.menu_name)));
   if (selectedPromoId) {
     const p = allPromos.find(x => x.id === selectedPromoId);
     box.innerHTML = `<div class="promo-box">
-      <div class="promo-applied"><span>🏷 ${p ? p.name : 'Promo'}</span><button onclick="cancelPromo()">✕</button></div>
+      <div class="promo-applied"><span>🏷 ${p ? p.name : 'Promo'}${p && p.applicable_menus ? ' (khusus: ' + p.applicable_menus + ')' : ''}</span><button onclick="cancelPromo()">✕</button></div>
     </div>`;
     return;
   }
@@ -827,6 +837,7 @@ async function addMenu() {
     showToast('Menu tersimpan');
     await loadMenuData();
     renderKelolaMenu();
+    renderPromoMenuPickers(); // biar checkbox pilihan menu di form promo ikut update
     renderMenu();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
@@ -861,6 +872,7 @@ async function deleteMenu(name) {
   });
   await loadMenuData();
   renderKelolaMenu();
+  renderPromoMenuPickers(); // biar checkbox pilihan menu di form promo ikut update
   renderMenu();
 }
 async function deleteRecipe(id) {
@@ -943,7 +955,27 @@ function togglePromoTypeFields() {
     'show', type === 'discount_percent' || type === 'discount_fixed'
   );
 }
-  
+
+// Isi checkbox pilihan menu (form diskon & bundle) dan dropdown menu (bundle_qty),
+// berdasarkan allMenu yang lagi ada. Dipanggil tiap masuk tab Kelola Menu, dan tiap
+// kali daftar menu berubah (tambah/hapus menu), supaya selalu sinkron.
+function renderPromoMenuPickers() {
+  const esc = s => s.replace(/"/g, '&quot;');
+  const names = allMenu.map(m => m.name);
+  const discountBox = document.getElementById('promo-discount-menu-picker');
+  const bundleBox = document.getElementById('promo-bundle-menu-picker');
+  const qtySelect = document.getElementById('promo-bundle-qty-menu');
+  if (discountBox) {
+    discountBox.innerHTML = names.map(n => `<label><input type="checkbox" class="promo-discount-menu-cb" value="${esc(n)}" /> ${n}</label>`).join('');
+  }
+  if (bundleBox) {
+    bundleBox.innerHTML = names.map(n => `<label><input type="checkbox" class="promo-bundle-menu-cb" value="${esc(n)}" /> ${n}</label>`).join('');
+  }
+  if (qtySelect) {
+    qtySelect.innerHTML = names.map(n => `<option value="${esc(n)}">${n}</option>`).join('');
+  }
+}
+
 async function addPromo() {
   const name = document.getElementById('promo-name').value.trim();
   const type = document.getElementById('promo-type').value;
