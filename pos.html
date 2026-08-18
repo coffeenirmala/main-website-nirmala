@@ -669,6 +669,7 @@ async function checkout() {
   btn.disabled = true;
   btn.textContent = 'Memproses...';
   try {
+    const appliedPromo = selectedPromoId ? allPromos.find(x => x.id === selectedPromoId) : null;
     const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -677,6 +678,8 @@ async function checkout() {
         customer_email: selectedCustomer ? selectedCustomer.email : undefined,
         redeem_free: !!redeemItemName,
         redeem_item: redeemItemName || undefined,
+        promo_id: appliedPromo ? appliedPromo.id : undefined,
+        promo_name: appliedPromo ? appliedPromo.name : undefined,
       }),
     });
     const data = await res.json();
