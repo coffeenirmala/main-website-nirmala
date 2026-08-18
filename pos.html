@@ -540,6 +540,17 @@ function clearCart() {
   redeemMode = false;
   redeemItemName = null;
   selectedPromoId = null;
+  selectedPayment = null;
+  document.getElementById('pay-cash').classList.remove('active');
+  document.getElementById('pay-qris').classList.remove('active');
+  document.getElementById('payment-required-hint').classList.remove('show');
+  renderCart();
+}
+function selectPayment(type) {
+  selectedPayment = type;
+  document.getElementById('pay-cash').classList.toggle('active', type === 'cash');
+  document.getElementById('pay-qris').classList.toggle('active', type === 'qris');
+  document.getElementById('payment-required-hint').classList.remove('show');
   renderCart();
 }
 // Barista pencet "Redeem Gratis" di kotak customer -> masuk mode pilih item
