@@ -92,6 +92,23 @@ export default async function handler(req, res) {
       }
     }
 
+    // 2b. Validasi & ambil promo diskon dari DB (jangan percaya nominal dari client)
+    let appliedPromo = null;
+    if (promo_id) {
+      const promoRows = await supabase('GET', `nc_promos?id=eq.${promo_id}&limit=1`);
+      const promo = promoRows && promoRows[0];
+      if (!promo) {
+        return res.status(400).json({ error: 'Promo tidak ditemukan' });
+      }
+      if (!promo.active || dateStr < promo.valid_from || dateStr > promo.valid_until) {
+        return res.status(400).json({ error: 'Promo sudah tidak aktif atau di luar periode berlaku' });
+      }
+      if (promo.type !== 'discount_percent' && promo.type !== 'discount_fixed') {
+        return res.status(400).json({ error: 'Jenis promo ini tidak bisa diterapkan saat checkout' });
+      }
+      appliedPromo = promo;
+    }
+
     // 3. Hitung total bahan baku yang harus dikurangi (agregat lintas item)
     const deduction = {}; // { ingredient_name: totalQty }
     for (const it of items) {
