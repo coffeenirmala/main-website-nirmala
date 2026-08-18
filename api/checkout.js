@@ -285,6 +285,28 @@ export default async function handler(req, res) {
 
     await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload, ...promoSalesPayload]);
 
+    // Hitung berapa "cup" yang terjual di transaksi ini untuk keperluan punch loyalty.
+    // Aturan: 1 menu = 1 punch. Bundle beda-menu (type 'bundle') menghitung tiap menu
+    // di dalamnya; bundle qty-sama (type 'bundle_qty') menghitung N pcs-nya. Item yang
+    // sedang di-redeem gratis TIDAK menambah punch sama sekali (baik itu sendiri
+    // maupun qty lain di keranjang) — sesuai desain awal: redeem tidak numpuk dengan nabung punch baru.
+    function computePunchCount() {
+      if (redeem_free) return 0;
+      let count = 0;
+      for (const it of items) {
+        const bundle = bundleMap[it.menu_name];
+        if (bundle && bundle.type === 'bundle') {
+          const menuCount = bundle.bundle_items.split(',').map((s) => s.trim()).filter(Boolean).length;
+          count += menuCount * it.qty;
+        } else if (bundle && bundle.type === 'bundle_qty') {
+          count += bundle.bundle_qty * it.qty;
+        } else {
+          count += it.qty;
+        }
+      }
+      return count;
+    }
+    
     // 6. Loyalty punch (kalau ada customer)
     // Catatan: kalau redeem_free, transaksi ini TIDAK menambah punch baru (customer memakai
     // hadiah gratisnya, bukan menabung punch baru dari transaksi yang sama).
