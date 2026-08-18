@@ -514,9 +514,51 @@ function renderCart() {
     `;
     }).join('');
   }
-  const total = cart.reduce((s, c) => s + c.price * c.qty, 0) - (redeemItemName ? (cart.find(c => c.menu_name === redeemItemName)?.price || 0) : 0);
+  const rawTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  let total = rawTotal;
+  if (redeemItemName) {
+    total = rawTotal - (cart.find(c => c.menu_name === redeemItemName)?.price || 0);
+  } else if (selectedPromoId) {
+    const p = allPromos.find(x => x.id === selectedPromoId);
+    if (p) {
+      if (p.type === 'discount_percent') total = rawTotal - (rawTotal * p.discount_percent / 100);
+      if (p.type === 'discount_fixed') total = rawTotal - p.discount_fixed;
+    }
+  }
   document.getElementById('cart-total-val').textContent = 'Rp ' + Math.max(0, total).toLocaleString('id-ID');
   document.getElementById('btn-checkout').disabled = cart.length === 0;
+  renderPromoBox();
+}
+
+// ---------- Promo: pilih/batal di keranjang ----------
+function renderPromoBox() {
+  const box = document.getElementById('promo-box');
+  if (!box) return;
+  if (!cart.length) { box.innerHTML = ''; return; }
+  if (redeemItemName || redeemMode) {
+    box.innerHTML = '<div class="promo-box" style="color:#888">Promo tidak bisa dipakai bareng redeem gratis loyalty.</div>';
+    return;
+  }
+  const list = activePromos().filter(p => p.type !== 'bundle');
+  if (selectedPromoId) {
+    const p = allPromos.find(x => x.id === selectedPromoId);
+    box.innerHTML = `<div class="promo-box">
+      <div class="promo-applied"><span>🏷 ${p ? p.name : 'Promo'}</span><button onclick="cancelPromo()">✕</button></div>
+    </div>`;
+    return;
+  }
+  if (!list.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="promo-box"><strong style="font-size:12px">Promo Aktif</strong>` +
+    list.map(p => `<div class="promo-pick-item" onclick="pickPromo(${p.id})">🏷 ${p.name}</div>`).join('') +
+    `</div>`;
+}
+function pickPromo(id) {
+  selectedPromoId = id;
+  renderCart();
+}
+function cancelPromo() {
+  selectedPromoId = null;
+  renderCart();
 }
 
 // ---------- Customer search (reuse pola loyalty-desk) ----------
