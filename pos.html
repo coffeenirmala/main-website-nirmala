@@ -726,11 +726,19 @@ async function renderKelolaMenu() {
   if (!allMenu.length) { container.innerHTML = '<div class="empty">Belum ada menu, tambahkan di atas.</div>'; return; }
   container.innerHTML = allMenu.map(m => {
     const recipes = allRecipes.filter(r => r.menu_name === m.name);
+    const needsFix = !MENU_CATEGORIES.includes(m.category);
+    const catOptions = MENU_CATEGORIES.map(c =>
+      `<option value="${c}" ${c === m.category ? 'selected' : ''}>${c}</option>`
+    ).join('');
     return `
-      <div class="menu-manage-item">
+      <div class="menu-manage-item ${needsFix ? 'needs-cat-fix' : ''}">
         <div class="top">
-          <strong>${m.name}</strong>
-          <span>Rp ${m.price.toLocaleString('id-ID')} · ${m.category}
+          <strong>${m.name}${needsFix ? ' ⚠️' : ''}</strong>
+          <span>Rp ${m.price.toLocaleString('id-ID')}
+            <select class="quick-cat-select" onchange="quickUpdateCategory('${m.name.replace(/'/g, "\\'")}', this.value, ${m.price})">
+              ${needsFix ? `<option value="" selected disabled>${m.category || '(kosong)'}</option>` : ''}
+              ${catOptions}
+            </select>
             <button class="small-btn" onclick="deleteMenu('${m.name.replace(/'/g, "\\'")}')">hapus</button>
           </span>
         </div>
