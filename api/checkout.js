@@ -30,10 +30,11 @@ export default async function handler(req, res) {
   try {
     let body = req.body;
     if (typeof body === 'string') body = JSON.parse(body);
-    const { items, customer_email, redeem_free, redeem_item } = body;
+    const { items, customer_email, redeem_free, redeem_item, promo_id } = body;
     // items: [{ menu_name, qty }]
     // redeem_free: true kalau barista memilih 1 item untuk digratiskan
     // redeem_item: menu_name item yang digratiskan (wajib kalau redeem_free true)
+    // promo_id: id promo diskon (nc_promos) yang dipakai — tidak boleh bareng redeem_free
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Keranjang kosong' });
@@ -44,6 +45,9 @@ export default async function handler(req, res) {
     }
     if (redeem_free && !customer_email) {
       return res.status(400).json({ error: 'Redeem gratis butuh customer_email' });
+    }
+    if (redeem_free && promo_id) {
+      return res.status(400).json({ error: 'Redeem gratis dan promo diskon tidak boleh dipakai bersamaan' });
     }
 
     const today = new Date();
