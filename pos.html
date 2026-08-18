@@ -709,6 +709,27 @@ async function deleteRecipe(id) {
   renderKelolaMenu();
 }
 
+// Migrasi cepat: ubah kategori 1 menu langsung dari dropdown di list,
+// tanpa perlu retype nama & harga di form atas.
+async function quickUpdateCategory(name, category, price) {
+  try {
+    const res = await fetch('/api/menu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert_menu', name, category, price }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    showToast(`Kategori "${name}" -> ${category}`);
+    await loadMenuData();
+    renderKelolaMenu();
+    renderMenu();
+  } catch (e) {
+    showToast('Gagal update kategori: ' + e.message);
+  }
+}
+
+async function renderKelolaMenu() { 
+
 async function renderKelolaMenu() {
   await loadInventoryList();
 
