@@ -56,6 +56,12 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .qty-ctrl { display: flex; align-items: center; gap: 8px; }
 .qty-ctrl button { width: 24px; height: 24px; border-radius: 6px; border: 0.5px solid #ccc; background: #fff; font-size: 14px; cursor: pointer; }
 .cart-total { display: flex; justify-content: space-between; font-size: 15px; font-weight: 500; margin: 12px 0; }
+.payment-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
+.payment-options { display: flex; gap: 8px; margin-top: 6px; }
+.payment-chip { flex: 1; padding: 10px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; font-size: 13px; font-weight: 500; color: #666; cursor: pointer; }
+.payment-chip.active { background: #3C3489; color: #fff; border-color: #3C3489; }
+.payment-required-hint { font-size: 11px; color: #c00; margin-top: 6px; display: none; }
+.payment-required-hint.show { display: block; }
 .customer-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
 .customer-box input { width: 100%; padding: 8px 10px; font-size: 13px; border: 0.5px solid #ccc; border-radius: 6px; margin-top: 6px; }
 .customer-results { max-height: 140px; overflow-y: auto; margin-top: 6px; }
