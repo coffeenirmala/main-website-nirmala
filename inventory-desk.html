@@ -999,7 +999,7 @@ function doExport(){
   const restock=getRestock().filter(r=>r.date>=range.start&&r.date<=range.end);
 
   const combined=[
-    ...sales.map(s=>({date:s.date,ts:s.ts,item:s.item,type:'Pemakaian',qty:s.qty,unit:s.unit,note:''})),
+    ...sales.filter(s=>s.type==='manual').map(s=>({date:s.date,ts:s.ts,item:s.item,type:'Pemakaian',qty:s.qty,unit:s.unit,note:''})),
     ...restock.map(r=>({date:r.date,ts:r.ts,item:r.item,type:'Restock Masuk',qty:r.qty,unit:r.unit,note:(r.price?fmtRp(r.price):'')+(r.note?' · '+r.note:'')}))
   ].sort((a,b)=>a.ts-b.ts);
 
