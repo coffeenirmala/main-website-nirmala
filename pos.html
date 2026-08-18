@@ -409,7 +409,13 @@ function promoStatus(p) {
   if (today < p.valid_from) return 'belum';
   if (today > p.valid_until) return 'selesai';
   if (!p.active) return 'selesai';
-  if (!isPromoTimeActive(p)) return 'belum'; // di luar jam happy hour hari ini
+  if (p.time_from && p.time_until) {
+    const now = new Date().toTimeString().slice(0, 5);
+    const from = p.time_from.slice(0, 5);
+    const until = p.time_until.slice(0, 5);
+    if (now < from) return 'belum';   // belum masuk jam happy hour hari ini
+    if (now > until) return 'tutup';  // sudah lewat jam happy hour hari ini
+  }
   return 'aktif';
 }
 function isPromoTimeActive(p) {
