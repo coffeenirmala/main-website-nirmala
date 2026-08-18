@@ -765,6 +765,11 @@ function renderCustomerBox(loading) {
 // ---------- Checkout ----------
 async function checkout() {
   if (!cart.length) return;
+  if (!selectedPayment) {
+    document.getElementById('payment-required-hint').classList.add('show');
+    showToast('Pilih metode pembayaran (Cash/QRIS) dulu');
+    return;
+  }
   const btn = document.getElementById('btn-checkout');
   btn.disabled = true;
   btn.textContent = 'Memproses...';
@@ -780,6 +785,7 @@ async function checkout() {
         redeem_item: redeemItemName || undefined,
         promo_id: appliedPromo ? appliedPromo.id : undefined,
         promo_name: appliedPromo ? appliedPromo.name : undefined,
+        payment_type: selectedPayment,
       }),
     });
     const data = await res.json();
@@ -797,7 +803,7 @@ async function checkout() {
     showToast('Gagal: ' + e.message);
   } finally {
     btn.textContent = 'Checkout';
-    btn.disabled = cart.length === 0;
+    btn.disabled = cart.length === 0 || !selectedPayment;
   }
 }
 
