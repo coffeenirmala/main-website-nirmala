@@ -215,7 +215,14 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
         <strong style="font-size:13px">Tambah / Update Menu</strong>
         <div class="form-row" style="margin-top:8px">
           <input type="text" id="new-menu-name" placeholder="Nama menu (mis. Cappuccino)" />
-          <input type="text" id="new-menu-category" placeholder="Kategori (mis. Coffee)" />
+          <select id="new-menu-category">
+            <option value="Coffee">Coffee</option>
+            <option value="Non Coffee">Non Coffee</option>
+            <option value="Mocktail">Mocktail</option>
+            <option value="Makanan">Makanan</option>
+            <option value="Snack">Snack</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
           <input type="number" id="new-menu-price" placeholder="Harga jual (Rp)" />
           <button class="btn-add" onclick="addMenu()">Simpan</button>
         </div>
