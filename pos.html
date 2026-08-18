@@ -234,16 +234,24 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
           <option value="monthly">Bulanan</option>
         </select>
         <input type="date" id="report-date" onchange="loadReport()" />
-        <button class="btn-secondary" onclick="downloadCsv()">Download CSV</button>
+        <button class="btn-secondary" onclick="downloadExcel()">Download Excel</button>
       </div>
       <div class="report-summary">
         <div style="font-size:12px;color:#888" id="report-range-label">—</div>
         <div class="report-total" id="report-total">Rp 0</div>
       </div>
+      <div style="font-size:13px;font-weight:500;margin:14px 0 8px">Log Transaksi</div>
       <div style="overflow-x:auto">
         <table class="report-table" id="report-table">
-          <thead><tr><th>Tanggal</th><th>Item</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th>Tipe</th></tr></thead>
-          <tbody id="report-tbody"><tr><td colspan="6" class="empty">Memuat...</td></tr></tbody>
+          <thead><tr><th>Tanggal</th><th>Waktu</th><th>Menu Item</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th>Tipe Pembayaran</th><th>Tipe</th></tr></thead>
+          <tbody id="report-tbody"><tr><td colspan="8" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+      <div style="font-size:13px;font-weight:500;margin:20px 0 8px">Ringkasan Penjualan (paling laku duluan)</div>
+      <div style="overflow-x:auto">
+        <table class="report-table" id="report-summary-table">
+          <thead><tr><th>Nama Item</th><th>Qty</th><th>Total (Rp)</th></tr></thead>
+          <tbody id="report-summary-tbody"><tr><td colspan="3" class="empty">Memuat...</td></tr></tbody>
         </table>
       </div>
     </div>
