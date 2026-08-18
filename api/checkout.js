@@ -58,10 +58,33 @@ export default async function handler(req, res) {
       supabase('GET', `nc_recipe?menu_name=in.(${encodedNames})`),
     ]);
     const menuMap = Object.fromEntries(menuRows.map((m) => [m.name, m]));
-    
+
     for (const it of items) {
       if (!menuMap[it.menu_name]) {
         return res.status(400).json({ error: `Menu "${it.menu_name}" tidak ditemukan` });
+      }
+    }
+
+    if (redeem_free) {
+      const target = items.find((it) => it.menu_name === redeem_item);
+      if (!target || target.qty < 1) {
+        return res.status(400).json({ error: `Item redeem "${redeem_item}" tidak ada di keranjang` });
+      }
+    }
+
+    // PENTING: validasi punch cukup SEBELUM ada mutasi apapun (stok / sales / punch),
+    // supaya kalau redeem ditolak, transaksi belum menyentuh data apapun sama sekali.
+    let punchRecord = null;
+    if (customer_email) {
+      const existing = await supabase(
+        'GET',
+        `punches?email=eq.${encodeURIComponent(customer_email)}&limit=1`
+      );
+      punchRecord = existing && existing.length > 0 ? existing[0] : null;
+    }
+    if (redeem_free) {
+      if (!punchRecord || punchRecord.punches < PUNCHES_FOR_FREE) {
+        return res.status(400).json({ error: 'Punch belum cukup untuk redeem gratis (butuh 8/8)' });
       }
     }
 
