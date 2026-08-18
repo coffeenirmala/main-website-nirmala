@@ -125,14 +125,20 @@ export default async function handler(req, res) {
     }
 
 // 5a. Catat penjualan ke nc_sales (satu baris per menu item) — dipakai sales-report.js untuk omzet
-    const salesPayload = items.map((it) => ({
-      date: dateStr,
-      ts,
-      type: 'pos_sale',
-      item: it.menu_name,
-      qty: it.qty,
-      unit: 'pcs',
-    }));
+    // Kalau ada item yang di-redeem gratis, pisahkan 1 pcs-nya jadi baris 'pos_sale_free'
+    // (qty gratis = 1, tetap tercatat untuk potong stok bahan baku, tapi TIDAK dihitung sebagai omzet)
+    const salesPayload = [];
+    for (const it of items) {
+      if (redeem_free && it.menu_name === redeem_item) {
+        const paidQty = it.qty - 1;
+        if (paidQty > 0) {
+          salesPayload.push({ date: dateStr, ts, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
+        }
+        salesPayload.push({ date: dateStr, ts, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
+      } else {
+        salesPayload.push({ date: dateStr, ts, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
+      }
+    }
 
     // 5b. Catat pemakaian bahan baku per gramasi (dari `deduction` di langkah 3) —
     // type:'manual' supaya kebaca sama seperti input manual barista di Forecast,
