@@ -30,11 +30,20 @@ export default async function handler(req, res) {
   try {
     let body = req.body;
     if (typeof body === 'string') body = JSON.parse(body);
-    const { items, customer_email, redeem_free } = body;
+    const { items, customer_email, redeem_free, redeem_item } = body;
     // items: [{ menu_name, qty }]
+    // redeem_free: true kalau barista memilih 1 item untuk digratiskan
+    // redeem_item: menu_name item yang digratiskan (wajib kalau redeem_free true)
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Keranjang kosong' });
+    }
+
+    if (redeem_free && !redeem_item) {
+      return res.status(400).json({ error: 'Pilih item yang mau digratiskan (redeem_item wajib diisi)' });
+    }
+    if (redeem_free && !customer_email) {
+      return res.status(400).json({ error: 'Redeem gratis butuh customer_email' });
     }
 
     const today = new Date();
