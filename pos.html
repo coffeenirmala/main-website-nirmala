@@ -929,11 +929,14 @@ async function renderKelolaMenu() {
 // ---------- Kelola Promo ----------
 function togglePromoTypeFields() {
   const type = document.getElementById('promo-type').value;
-  ['discount_percent', 'discount_fixed', 'bundle'].forEach(t => {
+  ['discount_percent', 'discount_fixed', 'bundle', 'bundle_qty'].forEach(t => {
     document.getElementById('fields-' + t).classList.toggle('show', t === type);
   });
+  document.getElementById('fields-discount-menu-wrap').classList.toggle(
+    'show', type === 'discount_percent' || type === 'discount_fixed'
+  );
 }
-
+  
 async function addPromo() {
   const name = document.getElementById('promo-name').value.trim();
   const type = document.getElementById('promo-type').value;
