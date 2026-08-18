@@ -61,6 +61,19 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .customer-selected { display: flex; justify-content: space-between; align-items: center; background: #EEEDFE; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-top: 6px; }
 .customer-selected button { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; }
 .punch-hint { font-size: 11px; color: #3C3489; margin-top: 4px; }
+.punch-status { font-size: 11px; color: #555; margin-top: 6px; }
+.punch-track { display: flex; gap: 3px; margin-top: 4px; }
+.punch-dot { flex: 1; height: 6px; border-radius: 3px; background: #ddd; }
+.punch-dot.on { background: #3C3489; }
+.btn-redeem { width: 100%; margin-top: 8px; padding: 9px; background: #085041; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; }
+.btn-redeem:disabled { opacity: 0.4; cursor: default; }
+.btn-cancel-redeem { width: 100%; margin-top: 6px; padding: 7px; background: none; border: 0.5px solid #ccc; border-radius: 8px; font-size: 11px; color: #888; cursor: pointer; }
+.redeem-banner { font-size: 11px; color: #085041; background: #E6F3EF; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; }
+.cart-line.pickable { cursor: pointer; background: #FFFBEA; margin: 0 -8px; padding: 8px; border-radius: 6px; }
+.cart-line.redeemed { background: #E6F3EF; margin: 0 -8px; padding: 8px; border-radius: 6px; }
+.free-tag { display: inline-block; font-size: 10px; color: #fff; background: #085041; padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+.price-strike { text-decoration: line-through; color: #aaa; margin-right: 4px; }
+.price-free { color: #085041; font-weight: 600; }
 .btn-checkout { width: 100%; padding: 14px; background: #3C3489; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; margin-top: 8px; }
 .btn-checkout:disabled { opacity: 0.4; }
 .btn-clear { width: 100%; padding: 8px; background: none; color: #888; border: none; font-size: 12px; cursor: pointer; margin-top: 6px; }
@@ -232,6 +245,10 @@ let cart = []; // { menu_name, price, qty }
 let selectedCustomer = null; // { email, name }
 let allMembers = [];
 let currentReport = null;
+const PUNCHES_FOR_FREE = 8;
+let customerPunch = null;   // { punches, total_punches, free_redeemed }
+let redeemMode = false;     // true = barista sedang memilih item mana yang digratiskan
+let redeemItemName = null;  // menu_name item yang dipilih gratis
 
 // ---------- PIN ----------
 function pressKey(k) {
@@ -325,28 +342,70 @@ function changeQty(name, delta) {
   const item = cart.find(c => c.menu_name === name);
   if (!item) return;
   item.qty += delta;
-  if (item.qty <= 0) cart = cart.filter(c => c.menu_name !== name);
+  if (item.qty <= 0) {
+    cart = cart.filter(c => c.menu_name !== name);
+    if (redeemItemName === name) redeemItemName = null; // item yang digratiskan dihapus dari keranjang
+  }
   renderCart();
 }
-function clearCart() { cart = []; renderCart(); }
+function clearCart() {
+  cart = [];
+  redeemMode = false;
+  redeemItemName = null;
+  renderCart();
+}
+
+// Barista pencet "Redeem Gratis" di kotak customer -> masuk mode pilih item
+function startRedeemPick() {
+  if (!customerPunch || customerPunch.punches < PUNCHES_FOR_FREE) return;
+  if (!cart.length) { showToast('Keranjang masih kosong'); return; }
+  redeemMode = true;
+  redeemItemName = null;
+  renderCart();
+  renderCustomerBox();
+}
+function cancelRedeem() {
+  redeemMode = false;
+  redeemItemName = null;
+  renderCart();
+  renderCustomerBox();
+}
+function pickRedeemItem(name) {
+  redeemItemName = name;
+  redeemMode = false;
+  renderCart();
+  renderCustomerBox();
+}
+
 function renderCart() {
   const el = document.getElementById('cart-lines');
   if (!cart.length) {
     el.innerHTML = '<div class="empty">Belum ada item</div>';
   } else {
-    el.innerHTML = cart.map(c => `
-      <div class="cart-line">
-        <div class="cart-line-name">${c.menu_name}<br><span style="color:#888;font-size:11px">Rp ${c.price.toLocaleString('id-ID')}</span></div>
+    const banner = redeemMode ? '<div class="redeem-banner">🎁 Pilih 1 menu di bawah untuk digratiskan</div>' : '';
+    el.innerHTML = banner + cart.map(c => {
+      const isRedeemed = redeemItemName === c.menu_name;
+      const isPickable = redeemMode;
+      const cls = isRedeemed ? 'redeemed' : (isPickable ? 'pickable' : '');
+      const onclick = isPickable ? `onclick="pickRedeemItem('${c.menu_name.replace(/'/g, "\\'")}')"` : '';
+      let priceHtml = `Rp ${c.price.toLocaleString('id-ID')}`;
+      if (isRedeemed) {
+        priceHtml = `<span class="price-strike">Rp ${c.price.toLocaleString('id-ID')}</span><span class="price-free">Rp 0</span> <span style="color:#888">x${c.qty > 1 ? ` (1 gratis, ${c.qty - 1} bayar)` : ''}</span>`;
+      }
+      return `
+      <div class="cart-line ${cls}" ${onclick}>
+        <div class="cart-line-name">${c.menu_name}${isRedeemed ? '<span class="free-tag">GRATIS</span>' : ''}<br><span style="color:#888;font-size:11px">${priceHtml}</span></div>
         <div class="qty-ctrl">
-          <button onclick="changeQty('${c.menu_name.replace(/'/g, "\\'")}', -1)">−</button>
+          <button onclick="event.stopPropagation(); changeQty('${c.menu_name.replace(/'/g, "\\'")}', -1)">−</button>
           <span>${c.qty}</span>
-          <button onclick="changeQty('${c.menu_name.replace(/'/g, "\\'")}', 1)">+</button>
+          <button onclick="event.stopPropagation(); changeQty('${c.menu_name.replace(/'/g, "\\'")}', 1)">+</button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
-  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  document.getElementById('cart-total-val').textContent = 'Rp ' + total.toLocaleString('id-ID');
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0) - (redeemItemName ? (cart.find(c => c.menu_name === redeemItemName)?.price || 0) : 0);
+  document.getElementById('cart-total-val').textContent = 'Rp ' + Math.max(0, total).toLocaleString('id-ID');
   document.getElementById('btn-checkout').disabled = cart.length === 0;
 }
 
@@ -378,21 +437,76 @@ async function searchCustomer() {
     return `<div class="customer-result" onclick="selectCustomer('${c.email.replace(/'/g, "\\'")}', '${name.replace(/'/g, "\\'")}')">${name} — ${c.email}</div>`;
   }).join('');
 }
-function selectCustomer(email, name) {
+async function selectCustomer(email, name) {
   selectedCustomer = { email, name };
+  customerPunch = null;
+  redeemMode = false;
+  redeemItemName = null;
   document.getElementById('customer-results').innerHTML = '';
   document.getElementById('customer-search').value = '';
-  document.getElementById('customer-selected-box').innerHTML = `
+  renderCustomerBox(true); // tampilkan state loading dulu
+
+  try {
+    const res = await fetch(`/api/punch?email=${encodeURIComponent(email)}`);
+    customerPunch = await res.json();
+  } catch (e) {
+    customerPunch = { punches: 0, total_punches: 0, free_redeemed: 0 };
+  }
+  renderCustomerBox();
+  renderCart();
+}
+
+function clearCustomer() {
+  selectedCustomer = null;
+  customerPunch = null;
+  redeemMode = false;
+  redeemItemName = null;
+  document.getElementById('customer-selected-box').innerHTML = '';
+  renderCart();
+}
+
+function renderCustomerBox(loading) {
+  const box = document.getElementById('customer-selected-box');
+  if (!selectedCustomer) { box.innerHTML = ''; return; }
+
+  const name = selectedCustomer.name;
+  let punchSection = '<div class="punch-status">Memuat status punch...</div>';
+
+  if (!loading && customerPunch) {
+    const p = Math.min(customerPunch.punches, PUNCHES_FOR_FREE);
+    const eligible = customerPunch.punches >= PUNCHES_FOR_FREE;
+    const dots = Array.from({ length: PUNCHES_FOR_FREE }, (_, i) =>
+      `<div class="punch-dot ${i < p ? 'on' : ''}"></div>`
+    ).join('');
+
+    if (redeemItemName) {
+      punchSection = `
+        <div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — redeem gratis sedang dipakai untuk "${redeemItemName}"</div>
+        <div class="punch-track">${dots}</div>
+        <button class="btn-cancel-redeem" onclick="cancelRedeem()">Batalkan redeem</button>
+      `;
+    } else if (eligible) {
+      punchSection = `
+        <div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — sudah bisa redeem 1 minuman gratis 🎉</div>
+        <div class="punch-track">${dots}</div>
+        <button class="btn-redeem" onclick="startRedeemPick()">🎁 Redeem Gratis</button>
+      `;
+    } else {
+      punchSection = `
+        <div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — butuh ${PUNCHES_FOR_FREE - customerPunch.punches} lagi untuk gratis</div>
+        <div class="punch-track">${dots}</div>
+      `;
+    }
+  }
+
+  box.innerHTML = `
     <div class="customer-selected">
       <span>${name}</span>
       <button onclick="clearCustomer()">✕</button>
     </div>
-    <div class="punch-hint">Transaksi ini akan menambah 1 punch untuk customer ini</div>
+    ${punchSection}
+    ${!redeemItemName ? '<div class="punch-hint">Transaksi ini akan menambah 1 punch (kecuali sedang redeem gratis)</div>' : ''}
   `;
-}
-function clearCustomer() {
-  selectedCustomer = null;
-  document.getElementById('customer-selected-box').innerHTML = '';
 }
 
 // ---------- Checkout ----------
@@ -408,11 +522,16 @@ async function checkout() {
       body: JSON.stringify({
         items: cart.map(c => ({ menu_name: c.menu_name, qty: c.qty })),
         customer_email: selectedCustomer ? selectedCustomer.email : undefined,
+        redeem_free: !!redeemItemName,
+        redeem_item: redeemItemName || undefined,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Checkout gagal');
-    showToast('Transaksi berhasil! Rp ' + data.total.toLocaleString('id-ID'));
+    const msg = data.redeemed_item
+      ? `Transaksi berhasil! Rp ${data.total.toLocaleString('id-ID')} (1x ${data.redeemed_item} gratis 🎁)`
+      : `Transaksi berhasil! Rp ${data.total.toLocaleString('id-ID')}`;
+    showToast(msg);
     if (data.warnings && data.warnings.length) {
       showToast('⚠️ ' + data.warnings.join('; '));
     }
