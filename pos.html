@@ -382,9 +382,9 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'laporan') loadReport();
-  if (tab === 'kelola') { renderKelolaMenu(); renderPromoManage(); }
+  if (tab === 'kelola') { renderKelolaMenu(); renderPromoMenuPickers(); renderPromoManage(); }
 }
-
+  
 // ---------- Init ----------
 async function initApp() {
   await loadMenuData();
