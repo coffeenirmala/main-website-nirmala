@@ -473,9 +473,9 @@ function renderMenu() {
   container.innerHTML = Object.keys(grouped).map(cat => `
     <div class="category-label">${cat}</div>
     <div class="menu-items">
-      ${grouped[cat].map(m => m.type === 'bundle'
+      ${grouped[cat].map(m => (m.type === 'bundle' || m.type === 'bundle_qty')
         ? `<div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.bundle_price})">
-             <div class="name">🎁 ${m.name}</div>
+             <div class="name">🎁 ${m.name}${m.type === 'bundle_qty' ? ` (${m.bundle_qty}x)` : ''}</div>
              <div class="price">Rp ${m.bundle_price.toLocaleString('id-ID')}</div>
            </div>`
         : `<div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.price})">
