@@ -175,7 +175,20 @@ export default async function handler(req, res) {
       unit: unitMap[ing] || '',
     }));
 
-    await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload]);
+    // 5c. Catat pemakaian promo (kalau ada) — biar kelihatan "transaksi mana pakai promo apa" di Laporan
+    const promoSalesPayload = [];
+    let discountAmount = 0;
+    if (appliedPromo) {
+      const subtotal = items.reduce((sum, it) => sum + menuMap[it.menu_name].price * it.qty, 0);
+      discountAmount = appliedPromo.type === 'discount_percent'
+        ? Math.round(subtotal * appliedPromo.discount_percent / 100)
+        : Math.min(appliedPromo.discount_fixed, subtotal);
+      promoSalesPayload.push({
+        date: dateStr, ts, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
+      });
+    }
+
+    await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload, ...promoSalesPayload]);
 
     // 6. Loyalty punch (kalau ada customer)
     // Catatan: kalau redeem_free, transaksi ini TIDAK menambah punch baru (customer memakai
