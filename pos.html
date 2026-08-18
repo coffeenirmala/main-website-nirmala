@@ -264,28 +264,57 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
       </div>
 
       <div class="form-card">
-        <strong style="font-size:13px">Tambah Promo (Diskon / Bundle)</strong>
+        <strong style="font-size:13px">Tambah Promo</strong>
         <div class="form-row" style="margin-top:8px">
           <input type="text" id="promo-name" placeholder="Nama promo (mis. Diskon Member 10%)" />
           <select id="promo-type" onchange="togglePromoTypeFields()">
             <option value="discount_percent">Diskon %</option>
             <option value="discount_fixed">Diskon Nominal</option>
-            <option value="bundle">Bundle</option>
+            <option value="bundle">Bundle (beberapa menu beda)</option>
+            <option value="bundle_qty">Bundle (menu sama, N pcs)</option>
           </select>
         </div>
+
         <div class="form-row promo-type-fields show" id="fields-discount_percent">
           <input type="number" id="promo-discount-percent" placeholder="Persen diskon (mis. 10)" />
         </div>
         <div class="form-row promo-type-fields" id="fields-discount_fixed">
           <input type="number" id="promo-discount-fixed" placeholder="Potongan Rp (mis. 5000)" />
         </div>
+        <div class="form-row promo-type-fields show" id="fields-discount-menu-wrap">
+          <div style="width:100%">
+            <strong style="font-size:11px;color:#888">Berlaku untuk menu (kosongkan = semua menu)</strong>
+            <div class="promo-menu-picker" id="promo-discount-menu-picker"></div>
+          </div>
+        </div>
+
         <div class="form-row promo-type-fields" id="fields-bundle">
-          <input type="text" id="promo-bundle-items" placeholder="Nama menu, dipisah koma (mis. Americano,Croissant)" />
-          <input type="number" id="promo-bundle-price" placeholder="Harga paket (Rp)" />
+          <div style="width:100%">
+            <strong style="font-size:11px;color:#888">Pilih menu yang masuk bundle (min. 2)</strong>
+            <div class="promo-menu-picker" id="promo-bundle-menu-picker"></div>
+          </div>
+          <input type="number" id="promo-bundle-price" placeholder="Harga paket (Rp)" style="margin-top:8px" />
+        </div>
+
+        <div class="form-row promo-type-fields" id="fields-bundle_qty">
+          <select id="promo-bundle-qty-menu"></select>
+          <input type="number" id="promo-bundle-qty-count" placeholder="Jumlah pcs (mis. 3)" min="2" />
+          <input type="number" id="promo-bundle-qty-price" placeholder="Harga paket (Rp)" />
+        </div>
+
+        <div class="form-row" style="margin-top:8px">
+          <div>
+            <strong style="font-size:11px;color:#888">Tanggal berlaku</strong><br/>
+            <input type="date" id="promo-from" />
+            <input type="date" id="promo-until" />
+          </div>
+          <div>
+            <strong style="font-size:11px;color:#888">Jam berlaku tiap hari (opsional — utk happy hour)</strong><br/>
+            <input type="time" id="promo-time-from" />
+            <input type="time" id="promo-time-until" />
+          </div>
         </div>
         <div class="form-row">
-          <input type="date" id="promo-from" />
-          <input type="date" id="promo-until" />
           <button class="btn-add" onclick="addPromo()">Simpan Promo</button>
         </div>
       </div>
