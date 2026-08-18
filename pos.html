@@ -106,7 +106,24 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 .recipe-list { margin-top: 6px; font-size: 12px; color: #666; }
 .small-btn { font-size: 11px; color: #c00; background: none; border: none; cursor: pointer; }
 
+.promo-type-fields { display: none; gap: 8px; flex-wrap: wrap; width: 100%; }
+.promo-type-fields.show { display: flex; }
+.promo-list-item { background: #fff; border-radius: 10px; border: 0.5px solid #eee; padding: 10px 14px; margin-bottom: 8px; }
+.promo-list-item .top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+.promo-list-item .top strong { font-size: 14px; }
+.promo-list-item .meta { font-size: 11px; color: #888; margin-top: 4px; }
+.promo-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.promo-status.aktif { background: #E6F3EF; color: #085041; }
+.promo-status.belum { background: #FFF6E0; color: #a06b00; }
+.promo-status.selesai { background: #f0f0f0; color: #888; }
+.promo-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
+.promo-pick-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; border: 0.5px solid #ddd; margin-top: 6px; background: #fff; }
+.promo-pick-item:hover { background: #EEEDFE; }
+.promo-applied { display: flex; justify-content: space-between; align-items: center; background: #EEEDFE; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-top: 6px; }
+.promo-applied button { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; }
+
 .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+  
 .toast.show { opacity: 1; }
 .empty { text-align: center; padding: 1.5rem; color: #888; font-size: 13px; }
 </style>
