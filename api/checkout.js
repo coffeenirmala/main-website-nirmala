@@ -49,10 +49,16 @@ export default async function handler(req, res) {
     if (redeem_free && promo_id) {
       return res.status(400).json({ error: 'Redeem gratis dan promo diskon tidak boleh dipakai bersamaan' });
     }
-
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
-    const nowTime = today.toTimeString().slice(0, 5);
+    // Server Vercel jalan di UTC, tapi toko beroperasi di WIB (UTC+7).
+    // Kalau pakai waktu server langsung, jam 16:05 WIB kebaca sebagai 09:05,
+    // jadi salah tolak promo happy hour yang lagi aktif.
+    function nowWIB() {
+      const utcNow = new Date();
+      return new Date(utcNow.getTime() + 7 * 60 * 60 * 1000); // UTC+7
+    }
+    const wib = nowWIB();
+    const dateStr = wib.toISOString().slice(0, 10); // YYYY-MM-DD, sudah WIB
+    const nowTime = wib.toISOString().slice(11, 16); // HH:MM, sudah WIB
     const ts = Date.now();
 
     // 1. Ambil harga menu terbaru DAN promo bundle terkait dari DB (jangan percaya harga dari client)
