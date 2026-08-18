@@ -157,28 +157,21 @@ export default async function handler(req, res) {
     await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload]);
 
     // 6. Loyalty punch (kalau ada customer)
+    // Catatan: kalau redeem_free, transaksi ini TIDAK menambah punch baru (customer memakai
+    // hadiah gratisnya, bukan menabung punch baru dari transaksi yang sama).
     let punchResult = null;
     if (customer_email) {
-      const existing = await supabase(
-        'GET',
-        `punches?email=eq.${encodeURIComponent(customer_email)}&limit=1`
-      );
-      const record = existing && existing.length > 0 ? existing[0] : null;
-
       if (redeem_free) {
-        if (!record || record.punches < PUNCHES_FOR_FREE) {
-          return res.status(400).json({ error: 'Punch belum cukup untuk redeem gratis' });
-        }
         const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: record.punches - PUNCHES_FOR_FREE,
-          free_redeemed: record.free_redeemed + 1,
+          punches: punchRecord.punches - PUNCHES_FOR_FREE,
+          free_redeemed: punchRecord.free_redeemed + 1,
           updated_at: new Date().toISOString(),
         });
         punchResult = updated[0];
-      } else if (record) {
+      } else if (punchRecord) {
         const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: record.punches + 1,
-          total_punches: record.total_punches + 1,
+          punches: punchRecord.punches + 1,
+          total_punches: punchRecord.total_punches + 1,
           updated_at: new Date().toISOString(),
         });
         punchResult = updated[0];
@@ -193,13 +186,18 @@ export default async function handler(req, res) {
       }
     }
 
-    const total = items.reduce((sum, it) => sum + menuMap[it.menu_name].price * it.qty, 0);
+    // 7. Total yang harus dibayar — kurangi harga 1 pcs dari item yang di-redeem gratis
+    let total = items.reduce((sum, it) => sum + menuMap[it.menu_name].price * it.qty, 0);
+    if (redeem_free) {
+      total -= menuMap[redeem_item].price;
+    }
 
     return res.status(200).json({
       ok: true,
       total,
       warnings,
       punch: punchResult,
+      redeemed_item: redeem_free ? redeem_item : null,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
