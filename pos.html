@@ -257,6 +257,10 @@ let selectedCustomer = null; // { email, name }
 let allMembers = [];
 let currentReport = null;
 const PUNCHES_FOR_FREE = 8;
+// Daftar kategori tetap. Kalau nambah kategori baru, update juga <option> di
+// #new-menu-category (form Kelola Menu) supaya keduanya sinkron.
+const MENU_CATEGORIES = ['Coffee', 'Non Coffee', 'Mocktail', 'Makanan', 'Snack', 'Lainnya'];
+let selectedCategory = 'all'; // 'all' = tampilkan semua kategori
 let customerPunch = null;   // { punches, total_punches, free_redeemed }
 let redeemMode = false;     // true = barista sedang memilih item mana yang digratiskan
 let redeemItemName = null;  // menu_name item yang dipilih gratis
