@@ -811,48 +811,68 @@ async function checkout() {
 async function loadReport() {
   const range = document.getElementById('report-range').value;
   const date = document.getElementById('report-date').value;
-  document.getElementById('report-tbody').innerHTML = '<tr><td colspan="6" class="empty">Memuat...</td></tr>';
+  document.getElementById('report-tbody').innerHTML = '<tr><td colspan="8" class="empty">Memuat...</td></tr>';
+  document.getElementById('report-summary-tbody').innerHTML = '<tr><td colspan="3" class="empty">Memuat...</td></tr>';
   try {
     const res = await fetch(`/api/sales-report?range=${range}&date=${date}`);
     const data = await res.json();
     currentReport = data;
     document.getElementById('report-range-label').textContent = `${data.start} s/d ${data.end}`;
     document.getElementById('report-total').textContent = 'Rp ' + data.grand_total.toLocaleString('id-ID');
+
     const tbody = document.getElementById('report-tbody');
     if (!data.rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">Tidak ada transaksi</td></tr>';
-      return;
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">Tidak ada transaksi</td></tr>';
+    } else {
+      tbody.innerHTML = data.rows.map(r => `
+        <tr>
+          <td>${r.date}</td>
+          <td>${r.time || ''}</td>
+          <td>${r.item}</td>
+          <td>${r.qty} ${r.unit || ''}</td>
+          <td>Rp ${r.price.toLocaleString('id-ID')}</td>
+          <td>Rp ${r.subtotal.toLocaleString('id-ID')}</td>
+          <td>${r.payment_type ? r.payment_type.toUpperCase() : '-'}</td>
+          <td>${r.tipe}</td>
+        </tr>
+      `).join('');
     }
-    tbody.innerHTML = data.rows.map(r => `
-      <tr>
-        <td>${r.date}</td>
-        <td>${r.item}</td>
-        <td>${r.qty} ${r.unit || ''}</td>
-        <td>Rp ${r.price.toLocaleString('id-ID')}</td>
-        <td>Rp ${r.subtotal.toLocaleString('id-ID')}</td>
-        <td>${r.type}</td>
-      </tr>
-    `).join('');
+
+    const summaryTbody = document.getElementById('report-summary-tbody');
+    if (!data.summary || !data.summary.length) {
+      summaryTbody.innerHTML = '<tr><td colspan="3" class="empty">Tidak ada transaksi</td></tr>';
+    } else {
+      summaryTbody.innerHTML = data.summary.map(s => `
+        <tr>
+          <td>${s.item}</td>
+          <td>${s.qty}</td>
+          <td>Rp ${s.total.toLocaleString('id-ID')}</td>
+        </tr>
+      `).join('');
+    }
   } catch (e) {
-    document.getElementById('report-tbody').innerHTML = '<tr><td colspan="6" class="empty">Gagal memuat laporan</td></tr>';
+    document.getElementById('report-tbody').innerHTML = '<tr><td colspan="8" class="empty">Gagal memuat laporan</td></tr>';
+    document.getElementById('report-summary-tbody').innerHTML = '<tr><td colspan="3" class="empty">Gagal memuat laporan</td></tr>';
   }
 }
-function downloadCsv() {
+function downloadExcel() {
   if (!currentReport || !currentReport.rows.length) { showToast('Tidak ada data untuk diunduh'); return; }
-  const header = ['Tanggal', 'Item', 'Qty', 'Satuan', 'Harga', 'Subtotal', 'Tipe'];
-  const lines = [header.join(',')];
-  currentReport.rows.forEach(r => {
-    lines.push([r.date, `"${r.item}"`, r.qty, r.unit || '', r.price, r.subtotal, r.type].join(','));
-  });
-  lines.push('');
-  lines.push(`Total,,,,,${currentReport.grand_total},`);
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `nirmala-sales-${currentReport.range}-${currentReport.start}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+
+  const logHeader = ['Tanggal', 'Waktu', 'Menu Item', 'Qty', 'Harga', 'Subtotal', 'Tipe Pembayaran', 'Tipe'];
+  const logRows = currentReport.rows.map(r => [
+    r.date, r.time || '', r.item, r.qty, r.price, r.subtotal,
+    r.payment_type ? r.payment_type.toUpperCase() : '-', r.tipe,
+  ]);
+  const sheet1 = XLSX.utils.aoa_to_sheet([logHeader, ...logRows, [], ['', '', '', '', '', 'Total', currentReport.grand_total, '']]);
+
+  const summaryHeader = ['Nama Item', 'Qty', 'Total (Rp)'];
+  const summaryRows = (currentReport.summary || []).map(s => [s.item, s.qty, s.total]);
+  const sheet2 = XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheet1, 'Log Transaksi');
+  XLSX.utils.book_append_sheet(wb, sheet2, 'Ringkasan Penjualan');
+  XLSX.writeFile(wb, `nirmala-sales-${currentReport.range}-${currentReport.start}.xlsx`);
 }
 
 // ---------- Kelola Menu ----------
