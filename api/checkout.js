@@ -238,15 +238,15 @@ export default async function handler(req, res) {
     for (const it of items) {
       const bundle = bundleMap[it.menu_name];
       if (bundle) {
-        salesPayload.push({ date: dateStr, ts, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
+        salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
       } else if (redeem_free && it.menu_name === redeem_item) {
         const paidQty = it.qty - 1;
         if (paidQty > 0) {
-          salesPayload.push({ date: dateStr, ts, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
+          salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
         }
-        salesPayload.push({ date: dateStr, ts, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
+        salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
       } else {
-        salesPayload.push({ date: dateStr, ts, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
+        salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
       }
     }
 
