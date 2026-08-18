@@ -1010,8 +1010,9 @@ function doExport(){
   });
   if(combined.length===0)logRows.push(['—','—','Tidak ada aktivitas pada periode ini','—','—','—','—']);
 
-// Hanya baris type:'manual' (bahan baku gramasi) yang masuk Ringkasan Pemakaian.
-  // type:'pos_sale' = nama menu (mis. "Matcha Latte", "V60" sbg minuman) — bukan bahan, di-skip.
+// Hanya baris type:'manual' (bahan baku gramasi) yang masuk Ringkasan Pemakaian ini.
+  // (Log Harian di atas juga sudah difilter sama, lihat baris 1002 — type:'pos_sale'/'pos_sale_free'
+  // = nama menu yang terjual, bukan bahan baku, jadi di-skip dari kedua sheet.)
   const usageMap={};
   sales.filter(s=>s.type==='manual').forEach(s=>{
     if(!usageMap[s.item])usageMap[s.item]={total:0,unit:s.unit};
