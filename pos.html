@@ -942,20 +942,39 @@ async function addPromo() {
   const type = document.getElementById('promo-type').value;
   const valid_from = document.getElementById('promo-from').value;
   const valid_until = document.getElementById('promo-until').value;
+  const time_from = document.getElementById('promo-time-from').value || null;
+  const time_until = document.getElementById('promo-time-until').value || null;
   if (!name || !valid_from || !valid_until) { showToast('Nama & tanggal wajib diisi'); return; }
   if (valid_until < valid_from) { showToast('Tanggal selesai tidak boleh sebelum tanggal mulai'); return; }
+  if ((time_from && !time_until) || (!time_from && time_until)) {
+    showToast('Isi jam mulai & jam selesai berdua, atau kosongkan berdua'); return;
+  }
 
-  const payload = { action: 'upsert_promo', name, type, valid_from, valid_until, active: true };
-  if (type === 'discount_percent') {
-    payload.discount_percent = parseFloat(document.getElementById('promo-discount-percent').value);
-    if (!payload.discount_percent) { showToast('Isi persen diskon'); return; }
-  } else if (type === 'discount_fixed') {
-    payload.discount_fixed = parseFloat(document.getElementById('promo-discount-fixed').value);
-    if (!payload.discount_fixed) { showToast('Isi potongan Rp'); return; }
+  const payload = { action: 'upsert_promo', name, type, valid_from, valid_until, active: true, time_from, time_until };
+
+  if (type === 'discount_percent' || type === 'discount_fixed') {
+    const checked = Array.from(document.querySelectorAll('.promo-discount-menu-cb:checked')).map(cb => cb.value);
+    payload.applicable_menus = checked.length ? checked.join(',') : null;
+    if (type === 'discount_percent') {
+      payload.discount_percent = parseFloat(document.getElementById('promo-discount-percent').value);
+      if (!payload.discount_percent) { showToast('Isi persen diskon'); return; }
+    } else {
+      payload.discount_fixed = parseFloat(document.getElementById('promo-discount-fixed').value);
+      if (!payload.discount_fixed) { showToast('Isi potongan Rp'); return; }
+    }
   } else if (type === 'bundle') {
-    payload.bundle_items = document.getElementById('promo-bundle-items').value.trim();
+    const checked = Array.from(document.querySelectorAll('.promo-bundle-menu-cb:checked')).map(cb => cb.value);
+    payload.bundle_items = checked.join(',');
     payload.bundle_price = parseFloat(document.getElementById('promo-bundle-price').value);
-    if (!payload.bundle_items || !payload.bundle_price) { showToast('Lengkapi item & harga bundle'); return; }
+    if (checked.length < 2 || !payload.bundle_price) { showToast('Pilih minimal 2 menu & isi harga bundle'); return; }
+  } else if (type === 'bundle_qty') {
+    const menuName = document.getElementById('promo-bundle-qty-menu').value;
+    payload.bundle_items = menuName;
+    payload.bundle_qty = parseInt(document.getElementById('promo-bundle-qty-count').value, 10);
+    payload.bundle_price = parseFloat(document.getElementById('promo-bundle-qty-price').value);
+    if (!menuName || !payload.bundle_qty || payload.bundle_qty < 2 || !payload.bundle_price) {
+      showToast('Pilih menu, isi jumlah pcs (min 2), & harga paket'); return;
+    }
   }
 
   try {
@@ -968,10 +987,14 @@ async function addPromo() {
     document.getElementById('promo-name').value = '';
     document.getElementById('promo-discount-percent').value = '';
     document.getElementById('promo-discount-fixed').value = '';
-    document.getElementById('promo-bundle-items').value = '';
     document.getElementById('promo-bundle-price').value = '';
+    document.getElementById('promo-bundle-qty-count').value = '';
+    document.getElementById('promo-bundle-qty-price').value = '';
     document.getElementById('promo-from').value = '';
     document.getElementById('promo-until').value = '';
+    document.getElementById('promo-time-from').value = '';
+    document.getElementById('promo-time-until').value = '';
+    document.querySelectorAll('.promo-discount-menu-cb, .promo-bundle-menu-cb').forEach(cb => cb.checked = false);
     showToast('Promo tersimpan');
     await loadPromoData();
     renderPromoManage();
