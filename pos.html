@@ -568,8 +568,9 @@ function renderCart() {
   } else if (selectedPromoId) {
     const p = allPromos.find(x => x.id === selectedPromoId);
     if (p) {
-      if (p.type === 'discount_percent') total = rawTotal - (rawTotal * p.discount_percent / 100);
-      if (p.type === 'discount_fixed') total = rawTotal - p.discount_fixed;
+      const base = discountableSubtotal(p);
+      if (p.type === 'discount_percent') total = rawTotal - (base * p.discount_percent / 100);
+      if (p.type === 'discount_fixed') total = rawTotal - Math.min(p.discount_fixed, base);
     }
   }
   document.getElementById('cart-total-val').textContent = 'Rp ' + Math.max(0, total).toLocaleString('id-ID');
