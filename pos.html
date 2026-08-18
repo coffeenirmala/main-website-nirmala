@@ -314,6 +314,8 @@ let selectedCategory = 'all'; // 'all' = tampilkan semua kategori
 let customerPunch = null;   // { punches, total_punches, free_redeemed }
 let redeemMode = false;     // true = barista sedang memilih item mana yang digratiskan
 let redeemItemName = null;  // menu_name item yang dipilih gratis
+let allPromos = [];         // semua promo dari nc_promos
+let selectedPromoId = null; // id promo yang sedang dipakai di transaksi ini
 
 // ---------- PIN ----------
 function pressKey(k) {
