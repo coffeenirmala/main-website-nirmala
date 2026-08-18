@@ -220,11 +220,14 @@ export default async function handler(req, res) {
       }
     }
 
-    // 7. Total yang harus dibayar — kurangi harga 1 pcs dari item yang di-redeem gratis
+    // 7. Total yang harus dibayar — kurangi harga 1 pcs dari item yang di-redeem gratis, atau potongan promo
     let total = items.reduce((sum, it) => sum + menuMap[it.menu_name].price * it.qty, 0);
     if (redeem_free) {
       total -= menuMap[redeem_item].price;
+    } else if (appliedPromo) {
+      total -= discountAmount;
     }
+    total = Math.max(0, total);
 
     return res.status(200).json({
       ok: true,
@@ -232,6 +235,8 @@ export default async function handler(req, res) {
       warnings,
       punch: punchResult,
       redeemed_item: redeem_free ? redeem_item : null,
+      applied_promo: appliedPromo ? appliedPromo.name : null,
+      discount_amount: discountAmount,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
