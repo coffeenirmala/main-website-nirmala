@@ -462,9 +462,9 @@ function clearCart() {
   cart = [];
   redeemMode = false;
   redeemItemName = null;
+  selectedPromoId = null;
   renderCart();
 }
-
 // Barista pencet "Redeem Gratis" di kotak customer -> masuk mode pilih item
 function startRedeemPick() {
   if (!customerPunch || customerPunch.punches < PUNCHES_FOR_FREE) return;
