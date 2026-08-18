@@ -210,6 +210,15 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 
           <div id="promo-box"></div>
 
+          <div class="payment-box">
+            <strong style="font-size:12px">Metode Pembayaran</strong>
+            <div class="payment-options">
+              <button type="button" class="payment-chip" id="pay-cash" onclick="selectPayment('cash')">💵 Cash</button>
+              <button type="button" class="payment-chip" id="pay-qris" onclick="selectPayment('qris')">📱 QRIS</button>
+            </div>
+            <div class="payment-required-hint" id="payment-required-hint">Pilih metode pembayaran dulu</div>
+          </div>
+
           <button class="btn-checkout" id="btn-checkout" onclick="checkout()" disabled>Checkout</button>
           <button class="btn-clear" onclick="clearCart()">Kosongkan keranjang</button>
         </div>
