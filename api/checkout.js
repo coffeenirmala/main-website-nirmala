@@ -320,17 +320,19 @@ export default async function handler(req, res) {
         });
         punchResult = updated[0];
       } else if (punchRecord) {
+        const addPunches = computePunchCount();
         const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: punchRecord.punches + 1,
-          total_punches: punchRecord.total_punches + 1,
+          punches: punchRecord.punches + addPunches,
+          total_punches: punchRecord.total_punches + addPunches,
           updated_at: new Date().toISOString(),
         });
         punchResult = updated[0];
       } else {
+        const addPunches = computePunchCount();
         const created = await supabase('POST', 'punches', {
           email: customer_email,
-          punches: 1,
-          total_punches: 1,
+          punches: addPunches,
+          total_punches: addPunches,
           free_redeemed: 0,
         });
         punchResult = created[0];
