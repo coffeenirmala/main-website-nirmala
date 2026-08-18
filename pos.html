@@ -357,10 +357,32 @@ function switchTab(tab) {
 // ---------- Init ----------
 async function initApp() {
   await loadMenuData();
+  await loadPromoData();
   renderCategoryFilter();
   renderMenu();
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById('report-date').value = today;
+}
+
+// ---------- Promo: load & helper status ----------
+async function loadPromoData() {
+  try {
+    const res = await fetch('/api/promos');
+    const data = await res.json();
+    allPromos = data.promos || [];
+  } catch (e) {
+    allPromos = [];
+  }
+}
+function promoStatus(p) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today < p.valid_from) return 'belum';
+  if (today > p.valid_until) return 'selesai';
+  if (!p.active) return 'selesai';
+  return 'aktif';
+}
+function activePromos() {
+  return allPromos.filter(p => promoStatus(p) === 'aktif');
 }
 
 // ---------- Kasir: filter kategori ----------
