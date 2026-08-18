@@ -464,7 +464,7 @@ function renderMenu() {
     grouped[cat].push(m);
   });
   // bundle promo aktif ikut muncul sebagai kartu menu, kategori terpisah "Promo Bundle"
-  const bundles = activePromos().filter(p => p.type === 'bundle')
+  const bundles = activePromos().filter(p => p.type === 'bundle' || p.type === 'bundle_qty')
     .filter(p => p.name.toLowerCase().includes(q) && (selectedCategory === 'all' || selectedCategory === 'Promo Bundle'));
   if (bundles.length) grouped['Promo Bundle'] = bundles;
 
