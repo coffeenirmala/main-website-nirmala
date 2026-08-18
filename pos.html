@@ -1040,16 +1040,18 @@ function renderPromoManage() {
   const statusLabel = { aktif: 'Aktif', belum: 'Belum Mulai', selesai: 'Selesai' };
   container.innerHTML = allPromos.map(p => {
     const st = promoStatus(p);
-    const detail = p.type === 'discount_percent' ? `Diskon ${p.discount_percent}%`
-      : p.type === 'discount_fixed' ? `Potongan Rp ${p.discount_fixed.toLocaleString('id-ID')}`
+    const detail = p.type === 'discount_percent' ? `Diskon ${p.discount_percent}% ${p.applicable_menus ? '(khusus: ' + p.applicable_menus + ')' : '(semua menu)'}`
+      : p.type === 'discount_fixed' ? `Potongan Rp ${p.discount_fixed.toLocaleString('id-ID')} ${p.applicable_menus ? '(khusus: ' + p.applicable_menus + ')' : '(semua menu)'}`
+      : p.type === 'bundle_qty' ? `${p.bundle_qty}x ${p.bundle_items} = Rp ${p.bundle_price.toLocaleString('id-ID')}`
       : `Bundle: ${p.bundle_items} · Rp ${p.bundle_price.toLocaleString('id-ID')}`;
+    const jamInfo = p.time_from && p.time_until ? ` · jam ${p.time_from.slice(0,5)}-${p.time_until.slice(0,5)}` : '';
     return `
       <div class="promo-list-item">
         <div class="top">
           <strong>${p.name}</strong>
           <span class="promo-status ${st}">${statusLabel[st]}</span>
         </div>
-        <div class="meta">${detail} · ${p.valid_from} s/d ${p.valid_until}</div>
+        <div class="meta">${detail} · ${p.valid_from} s/d ${p.valid_until}${jamInfo}</div>
         <div class="meta">
           <button class="small-btn" style="color:#3C3489" onclick="togglePromoActive(${p.id}, ${p.active})">${p.active ? 'nonaktifkan' : 'aktifkan'}</button>
           &nbsp;·&nbsp;
