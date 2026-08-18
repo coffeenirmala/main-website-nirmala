@@ -49,36 +49,48 @@ export default async function handler(req, res) {
     // harga bundle diambil dari nc_promos.bundle_price (bukan nc_menu), key = nama promo
     const bundlePriceMap = Object.fromEntries(promoRows.map((p) => [p.name, p.bundle_price]));
 
+    const posSales = sales.filter((s) => s.type === 'pos_sale' || s.type === 'pos_sale_bundle' || s.type === 'pos_sale_free');
+
     let grandTotal = 0;
-    const typeLabel = { pos_sale_bundle: 'promo_bundle' };
-    const rows = sales.map((s) => {
-      // pos_sale_free = 1 pcs yang digratiskan lewat redeem loyalty — tampil Rp 0, tidak masuk omzet
+    const rows = posSales.map((s) => {
       const isFree = s.type === 'pos_sale_free';
       const isBundle = s.type === 'pos_sale_bundle';
 
       let price;
       if (isFree) price = 0;
-      else if (isBundle) price = bundlePriceMap[s.item] ?? 0; // harga per paket
+      else if (isBundle) price = bundlePriceMap[s.item] ?? 0;
       else price = priceMap[s.item] ?? 0;
 
-      const subtotal = (s.type === 'pos_sale' || s.type === 'pos_sale_bundle') ? price * s.qty : 0;
-      if (s.type === 'pos_sale' || s.type === 'pos_sale_bundle') grandTotal += subtotal;
+      const subtotal = isFree ? 0 : price * s.qty;
+      grandTotal += subtotal;
 
       return {
         date: s.date,
+        time: s.time_wib || '',
         item: s.item,
         qty: s.qty,
         unit: s.unit,
-        type: isFree ? 'redeem_gratis' : (typeLabel[s.type] || s.type),
         price,
         subtotal,
+        payment_type: s.payment_type || '',
+        tipe: isFree ? 'redeem_gratis' : 'bayar',
       };
     });
+
+    const summaryMap = {};
+    for (const r of rows) {
+      if (!summaryMap[r.item]) summaryMap[r.item] = { item: r.item, qty: 0, total: 0 };
+      summaryMap[r.item].qty += r.qty;
+      summaryMap[r.item].total += r.subtotal;
+    }
+    const summary = Object.values(summaryMap).sort((a, b) => b.qty - a.qty);
+
     return res.status(200).json({
       range: range || 'daily',
       start: startStr,
       end: endStr,
       rows,
+      summary,
       grand_total: grandTotal,
     });
   } catch (err) {
