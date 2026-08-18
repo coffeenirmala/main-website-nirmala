@@ -341,7 +341,11 @@ async function loadMenuData() {
 // ---------- Kasir: render menu grid ----------
 function renderMenu() {
   const q = document.getElementById('menu-search-input').value.toLowerCase();
-  const filtered = allMenu.filter(m => m.name.toLowerCase().includes(q));
+  const filtered = allMenu.filter(m => {
+    const matchName = m.name.toLowerCase().includes(q);
+    const matchCategory = selectedCategory === 'all' || m.category === selectedCategory;
+    return matchName && matchCategory;
+  });
   const grouped = {};
   filtered.forEach(m => {
     const cat = m.category || 'lainnya';
