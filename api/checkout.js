@@ -258,6 +258,8 @@ export default async function handler(req, res) {
     const ingredientSalesPayload = ingredientNames.map((ing) => ({
       date: dateStr,
       ts,
+      time_wib: null,
+      payment_type: null,
       type: 'manual',
       item: ing,
       qty: Number(deduction[ing].toFixed(3)),
@@ -284,7 +286,7 @@ export default async function handler(req, res) {
         ? Math.round(base * appliedPromo.discount_percent / 100)
         : Math.min(appliedPromo.discount_fixed, base);
       promoSalesPayload.push({
-        date: dateStr, ts, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
+        date: dateStr, ts, time_wib: null, payment_type: null, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
       });
     }
 
