@@ -49,16 +49,20 @@ export default async function handler(req, res) {
     // harga bundle diambil dari nc_promos.bundle_price (bukan nc_menu), key = nama promo
     const bundlePriceMap = Object.fromEntries(promoRows.map((p) => [p.name, p.bundle_price]));
 
+    // Cuma baris penjualan menu (pos_sale / pos_sale_bundle / pos_sale_free) yang masuk
+    // laporan ini — pemakaian bahan baku ('manual') & catatan pemakaian promo diskon
+    // ('promo_used') tidak relevan untuk log transaksi kasir & ringkasan penjualan.
     const posSales = sales.filter((s) => s.type === 'pos_sale' || s.type === 'pos_sale_bundle' || s.type === 'pos_sale_free');
 
     let grandTotal = 0;
     const rows = posSales.map((s) => {
+      // pos_sale_free = 1 pcs yang digratiskan lewat redeem loyalty — tampil Rp 0, tidak masuk omzet
       const isFree = s.type === 'pos_sale_free';
       const isBundle = s.type === 'pos_sale_bundle';
 
       let price;
       if (isFree) price = 0;
-      else if (isBundle) price = bundlePriceMap[s.item] ?? 0;
+      else if (isBundle) price = bundlePriceMap[s.item] ?? 0; // harga per paket
       else price = priceMap[s.item] ?? 0;
 
       const subtotal = isFree ? 0 : price * s.qty;
@@ -77,6 +81,7 @@ export default async function handler(req, res) {
       };
     });
 
+    // Ringkasan total penjualan per item, urut dari yang paling laku (qty terbanyak) duluan
     const summaryMap = {};
     for (const r of rows) {
       if (!summaryMap[r.item]) summaryMap[r.item] = { item: r.item, qty: 0, total: 0 };
