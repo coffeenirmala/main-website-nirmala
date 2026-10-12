@@ -81,6 +81,8 @@ select{border:1.5px solid var(--line);background:var(--paper);margin-bottom:14px
   <button class="back" onclick="stopCam();go('menu')">← Kembali</button>
   <h1 id="cTitle">Clock In</h1><p class="sub">Pilih nama, ambil selfie, pastikan lokasi dalam radius.</p>
   <select id="emp"><option value="">Pilih nama…</option></select>
+  <div id="casualBox" style="display:none;margin:-4px 0 14px"><input id="casualName" maxlength="30" placeholder="Tulis namamu" oninput="upd()" style="width:100%;padding:14px;border-radius:14px;border:1.5px solid var(--line);font:16px var(--sans)">
+    <div style="font:11.5px var(--sans);color:var(--ink);margin-top:6px">Cukup ketik nama sekali. Setelahnya namamu muncul di daftar.</div></div>
   <div class="cam" id="cam"><span id="camMsg">Kamera belum aktif</span><video id="vid" autoplay playsinline style="display:none"></video></div>
   <canvas id="cv" style="display:none"></canvas>
   <div class="shut" id="shut" onclick="snap()"></div>
@@ -153,14 +155,19 @@ setInterval(()=>{const n=new Date(),w=new Date(n.toLocaleString('en-US',WIB));
   $('cD').textContent=`${DOW[w.getDay()]}, ${w.getDate()} ${MON[w.getMonth()]} ${w.getFullYear()}`},1000);
 
 /* ---- nama karyawan dari DB (tanpa jabatan) ---- */
-(async()=>{if(!configured()){toast('Isi dulu SUPABASE_URL & ANON KEY');return}
+async function loadNames(m){
+  if(!configured()){toast('Isi dulu SUPABASE_URL & ANON KEY');return}
   const {data:names,error}=await db.rpc('rpc_employees');
   if(error){toast('Gagal memuat nama: '+error.message);return}
-  names.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;$('emp').appendChild(o)});
-  $('emp').onchange=upd})();
+  const sel=$('emp');sel.innerHTML='<option value="">Pilih nama…</option>';
+  names.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;sel.appendChild(o)});
+  if(m!=='out'){const o=document.createElement('option');o.value='__casual__';o.textContent='➕ Barista casual (tulis nama)';sel.appendChild(o)}
+}
+$('emp').onchange=()=>{$('casualBox').style.display=$('emp').value==='__casual__'?'block':'none';upd()};
+loadNames('in');
 
 /* ---- capture ---- */
-function openCapture(m){mode=m;photo=null;loc=null;$('emp').value='';
+function openCapture(m){mode=m;photo=null;loc=null;$('casualBox').style.display='none';$('casualName').value='';loadNames(m);
   $('cTitle').textContent=m==='in'?'Clock In':'Clock Out';
   $('submit').textContent=m==='in'?'Simpan Clock In':'Simpan Clock Out';
   $('submit').classList.toggle('out',m==='out');
@@ -184,18 +191,18 @@ function checkLoc(){$('locTxt').textContent='Mencari lokasi…';badge('wait','Me
     loc={d,ok:d<=NIRMALA.radius};$('locTxt').textContent='Jarak dari Nirmala Coffee';$('locD').textContent=d+' m';
     badge(loc.ok?'ok':'bad',loc.ok?`Dalam radius ${NIRMALA.radius} m`:`Di luar radius ${NIRMALA.radius} m`);upd()},
     ()=>{loc=null;$('locTxt').textContent='Gagal mengambil lokasi.';badge('bad','Lokasi tidak terbaca');upd()},{enableHighAccuracy:true,timeout:10000})}
-function upd(){$('submit').disabled=!($('emp').value&&photo&&loc&&loc.ok)}
+function upd(){const v=$('emp').value,ok=v==='__casual__'?$('casualName').value.trim().length>=2:v!=='';$('submit').disabled=!(ok&&photo&&loc&&loc.ok)}
 
 async function submitAtt(){
   if(!configured())return toast('Isi dulu SUPABASE_URL & ANON KEY');
-  const name=$('emp').value,btn=$('submit');btn.disabled=true;btn.textContent='Menyimpan…';
+  const isC=$('emp').value==='__casual__',name=isC?$('casualName').value.trim().replace(/\s+/g,' '):$('emp').value,btn=$('submit');btn.disabled=true;btn.textContent='Menyimpan…';
   try{
     const wd=new Date().toLocaleDateString('sv-SE',WIB);
-    const path=`${name}/${wd}_${mode}_${Date.now()}.jpg`;
+    const path=`${name.replace(/[^\w-]+/g,'_')}/${wd}_${mode}_${Date.now()}.jpg`;
     const up=await db.storage.from('selfies').upload(path,photo,{contentType:'image/jpeg'});
     if(up.error)throw up.error;
     const url=db.storage.from('selfies').getPublicUrl(path).data.publicUrl;
-    const {data:r,error}=await db.rpc(mode==='in'?'rpc_clock_in':'rpc_clock_out',{p_name:name,p_photo:url,p_dist:loc.d});
+    const {data:r,error}=await db.rpc(mode==='in'?'rpc_clock_in':'rpc_clock_out',{p_name:name,p_photo:url,p_dist:loc.d,...(mode==='in'?{p_casual:isC}:{})});
     if(error)throw error;
     const t=mode==='in'?r.clock_in:r.clock_out;
     let st='Tepat waktu',flag=false;
@@ -203,7 +210,7 @@ async function submitAtt(){
     if(mode==='out'){st=r.is_early?`PULANG CEPAT ${r.early_min} menit`:'Sesuai jadwal';flag=r.is_early}
     $('rTitle').textContent=mode==='in'?'Clock In Berhasil':'Clock Out Berhasil';
     $('rPhoto').src=URL.createObjectURL(photo);
-    $('rN').textContent=name;$('rD').textContent=new Date(t).toLocaleDateString('id-ID',{...WIB,day:'numeric',month:'long',year:'numeric'});
+    $('rN').textContent=r.employee_name;$('rD').textContent=new Date(t).toLocaleDateString('id-ID',{...WIB,day:'numeric',month:'long',year:'numeric'});
     $('rS').textContent=SHIFT[r.shift]+(r.scheduled?'':' · di luar jadwal');
     $('rT').textContent=hhmm(t)+' WIB';$('rSt').textContent=st;$('rSt').className=flag?'flag':'';
     $('rDist').textContent=loc.d+' m';
