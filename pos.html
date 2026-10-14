@@ -28,6 +28,8 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px; }
 .header-bar h2 { font-size: 16px; font-weight: 500; }
 .logout-btn { font-size: 12px; color: #888; cursor: pointer; padding: 4px 10px; border: 0.5px solid #ddd; border-radius: 8px; background: none; }
+.greet { display: inline-block; margin-top: 6px; font-size: 13px; color: #3C3489; background: #EEEDFE; padding: 5px 12px; border-radius: 20px; }
+.greet.warn { color: #a06b00; background: #FFF6E0; }
 .tabs { display: flex; gap: 8px; margin-bottom: 1.25rem; }
 .tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: 0.5px solid #ddd; background: #fff; font-size: 13px; font-weight: 500; color: #666; cursor: pointer; }
 .tab-btn.active { background: #3C3489; color: #fff; border-color: #3C3489; }
@@ -173,7 +175,10 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
   <!-- App -->
   <div class="app" id="app-screen">
     <div class="header-bar">
-      <h2>Nirmala Kasir</h2>
+      <div>
+        <h2>Nirmala Kasir</h2>
+        <div class="greet" id="shift-greeting">Memuat barista…</div>
+      </div>
       <button class="logout-btn" onclick="logout()">Keluar</button>
     </div>
 
@@ -373,6 +378,51 @@ let allPromos = [];         // semua promo dari nc_promos
 let selectedPromoId = null; // id promo yang sedang dipakai di transaksi ini
 let selectedPayment = null; // 'cash' | 'qris' — wajib dipilih sebelum checkout
 
+// ---------- Sapaan barista shift (terintegrasi dengan sistem absen) ----------
+const ABSEN_URL = 'https://ddxwkqfpxtbdfosfzmam.supabase.co';
+const ABSEN_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkeHdrcWZweHRiZGZvc2Z6bWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDI3OTUsImV4cCI6MjA5MDE3ODc5NX0.-X8k78co46tVY4lnFTsfdGTIpJPkWjwmkEAkvpuxmk0';
+let shiftTimer = null;
+let onShift = [];
+
+function wibMinutes() {
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  const h = parseInt(p.find(x => x.type === 'hour').value, 10) % 24;
+  const m = parseInt(p.find(x => x.type === 'minute').value, 10);
+  return h * 60 + m;
+}
+function joinNames(names) {
+  if (names.length <= 1) return names.join('');
+  return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
+}
+async function loadOnShift() {
+  try {
+    const res = await fetch(ABSEN_URL + '/rest/v1/rpc/rpc_on_shift', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: ABSEN_ANON_KEY, Authorization: 'Bearer ' + ABSEN_ANON_KEY },
+      body: '{}',
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    onShift = await res.json();
+  } catch (e) {
+    onShift = null;
+  }
+  renderGreeting();
+}
+function renderGreeting() {
+  const el = document.getElementById('shift-greeting');
+  if (!el) return;
+  if (onShift === null) { el.className = 'greet warn'; el.textContent = 'Status shift tidak terbaca'; return; }
+  if (!onShift.length) { el.className = 'greet warn'; el.textContent = 'Belum ada barista yang clock in'; return; }
+  // Shift 1 berakhir 15:00. Barista shift lama yang lupa clock out tidak ikut disapa.
+  const currentShift = wibMinutes() < 15 * 60 ? 1 : 2;
+  let active = onShift.filter(r => r.shift >= currentShift);
+  if (!active.length) active = onShift; // mis. shift 1 lembur sendirian
+  const names = [...new Set(active.map(r => r.name))];
+  el.className = 'greet';
+  el.textContent = '👋 Hi ' + joinNames(names) + '!';
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && shiftTimer) loadOnShift(); });
+
 // ---------- PIN ----------
 function pressKey(k) {
   if (k === 'del') { pin = pin.slice(0, -1); }
@@ -395,6 +445,7 @@ function checkPin() {
   }
 }
 function logout() {
+  clearInterval(shiftTimer); shiftTimer = null;
   pin = ''; updateDots();
   document.getElementById('pin-error').textContent = '';
   document.getElementById('pin-screen').style.display = 'block';
@@ -412,6 +463,9 @@ function switchTab(tab) {
 
 // ---------- Init ----------
 async function initApp() {
+  loadOnShift();
+  clearInterval(shiftTimer);
+  shiftTimer = setInterval(loadOnShift, 30000);
   await loadMenuData();
   await loadPromoData();
   renderCategoryFilter();
@@ -672,8 +726,12 @@ async function searchCustomer() {
     try {
       const res = await fetch('/api/loyalty-members');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal memuat member');
       allMembers = data.contacts || [];
-    } catch (e) { return; }
+    } catch (e) {
+      resultsEl.innerHTML = '<div class="empty" style="padding:6px;color:#c00">Gagal memuat member: ' + e.message + '</div>';
+      return;
+    }
   }
 
   const ql = q.toLowerCase();
