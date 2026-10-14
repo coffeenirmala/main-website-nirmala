@@ -46,16 +46,4 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-}      }
-
-      const batch = data.contacts || [];
-      contacts = contacts.concat(batch);
-      if (batch.length < PAGE_SIZE) break; // halaman terakhir
-    }
-
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ contacts });
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
 }
