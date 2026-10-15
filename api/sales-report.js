@@ -11,6 +11,8 @@
 // - Target harian = DAILY_TARGET_CUPS cup, gabungan Shift 1 + Shift 2.
 // - Barista per transaksi dibaca dari nc_sales.barista (dicatat checkout.js = yang clock in terakhir).
 //   Transaksi lama (kolom kosong) memakai cara lama: siapa yang clock in di tanggal+shift itu.
+// - [REVISI] Harga per baris dibaca dari nc_sales.price (snapshot saat transaksi). Kalau kosong
+//   (transaksi lama sebelum kolom price ada), baru memakai harga menu/bundle saat ini sebagai cadangan.
 import crypto from 'node:crypto';
 
 const TZ = 'Asia/Jakarta';
@@ -172,11 +174,13 @@ async function kasirHandler(req, res) {
       const isBundle = s.type === 'pos_sale_bundle';
       const isPromo = s.type === 'promo_used'; // qty = nominal potongan (Rp), disimpan checkout.js
 
+      // [REVISI] Pakai harga snapshot saat transaksi (s.price). Harga menu/bundle saat ini
+      // hanya cadangan untuk data lama yang kolom price-nya kosong.
       let price;
       if (isPromo) price = -s.qty;
       else if (isFree) price = 0;
-      else if (isBundle) price = bundlePriceMap[s.item] ?? 0;
-      else price = priceMap[s.item] ?? 0;
+      else if (isBundle) price = s.price ?? bundlePriceMap[s.item] ?? 0;
+      else price = s.price ?? priceMap[s.item] ?? 0;
 
       if (!isPromo && !isBundle && !(s.item in catMap)) missingMenu.add(s.item);
 
@@ -381,7 +385,8 @@ async function ownerHandler(req, res) {
 
       const isFree = s.type === 'pos_sale_free';
       const isBundle = s.type === 'pos_sale_bundle';
-      const price = isFree ? 0 : isBundle ? (bundlePrice[s.item] ?? 0) : (priceMap[s.item] ?? 0);
+      // [REVISI] Harga snapshot saat transaksi (s.price); harga menu/bundle saat ini hanya cadangan data lama.
+      const price = isFree ? 0 : isBundle ? (s.price ?? bundlePrice[s.item] ?? 0) : (s.price ?? priceMap[s.item] ?? 0);
       const sub = price * s.qty;
       const cups = drinkCupsOf(s, catMap, bundleInfo); // cup minuman saja
 
