@@ -208,33 +208,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // 4. Cek stok saat ini, siapkan warning kalau kurang (tidak menghalangi transaksi)
-    const ingredientNames = Object.keys(deduction);
-    const warnings = [];
-    if (ingredientNames.length > 0) {
-      const stockRows = await supabase(
-        'GET',
-        `nc_inventory?name=in.(${ingredientNames.map(encodeURIComponent).join(',')})`
-      );
-      const stockMap = Object.fromEntries(stockRows.map((s) => [s.name, s.stock]));
-
-      await Promise.all(ingredientNames.map((ing) => {
-        if (!(ing in stockMap)) {
-          warnings.push(`Bahan "${ing}" tidak ditemukan di nc_inventory — stok TIDAK dikurangi untuk bahan ini. Cek nama di resep vs nc_inventory.`);
-          return null;
-        }
-        const currentStock = stockMap[ing];
-        const newStock = currentStock - deduction[ing];
-        if (newStock < 0) {
-          warnings.push(`Stok "${ing}" minus (${newStock}) setelah transaksi ini`);
-        }
-        return supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
-          stock: newStock,
-          updated_at: new Date().toISOString(),
-        });
-      }));
-    }
-
     // Helper: harga 1 baris keranjang (menu biasa pakai nc_menu.price, bundle pakai bundle_price promo)
     function lineTotal(it) {
       const bundle = bundleMap[it.menu_name];
@@ -304,6 +277,33 @@ export default async function handler(req, res) {
     }
 
     await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload, ...promoSalesPayload]);
+
+    // 4. (dijalankan setelah penjualan tercatat) Kurangi stok, siapkan warning kalau kurang (tidak menghalangi transaksi)
+    const ingredientNames = Object.keys(deduction);
+    const warnings = [];
+    if (ingredientNames.length > 0) {
+      const stockRows = await supabase(
+        'GET',
+        `nc_inventory?name=in.(${ingredientNames.map(encodeURIComponent).join(',')})`
+      );
+      const stockMap = Object.fromEntries(stockRows.map((s) => [s.name, s.stock]));
+
+      await Promise.all(ingredientNames.map((ing) => {
+        if (!(ing in stockMap)) {
+          warnings.push(`Bahan "${ing}" tidak ditemukan di nc_inventory — stok TIDAK dikurangi untuk bahan ini. Cek nama di resep vs nc_inventory.`);
+          return null;
+        }
+        const currentStock = stockMap[ing];
+        const newStock = currentStock - deduction[ing];
+        if (newStock < 0) {
+          warnings.push(`Stok "${ing}" minus (${newStock}) setelah transaksi ini`);
+        }
+        return supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
+          stock: newStock,
+          updated_at: new Date().toISOString(),
+        });
+      }));
+    }
 
     // Hitung berapa "cup" yang terjual di transaksi ini untuk keperluan punch loyalty.
     // Aturan: 1 menu = 1 punch. Bundle beda-menu (type 'bundle') menghitung tiap menu
