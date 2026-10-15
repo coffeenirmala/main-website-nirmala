@@ -41,6 +41,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Keranjang kosong' });
     }
 
+    // [REVISI 1] Validasi isi keranjang: nama harus teks, qty harus bilangan bulat 1-99.
+    // Tanpa ini, qty negatif/desimal dari client bisa menghasilkan total minus & stok bertambah.
+    for (const it of items) {
+      if (!it || typeof it.menu_name !== 'string' || !it.menu_name.trim()) {
+        return res.status(400).json({ error: 'Item keranjang tidak valid' });
+      }
+      if (!Number.isInteger(it.qty) || it.qty < 1 || it.qty > 99) {
+        return res.status(400).json({ error: `Qty untuk "${it.menu_name}" tidak valid (harus bilangan bulat 1-99)` });
+      }
+    }
+
     if (payment_type !== 'cash' && payment_type !== 'qris') {
       return res.status(400).json({ error: 'Metode pembayaran wajib diisi (cash atau qris)' });
     }
@@ -243,27 +254,31 @@ export default async function handler(req, res) {
     // (qty gratis = 1, tetap tercatat untuk potong stok bahan baku, tapi TIDAK dihitung sebagai omzet)
     // CATATAN: item bundle dicatat sebagai type 'pos_sale_bundle' dengan qty = jumlah paket terjual.
     // Setiap baris penjualan membawa `barista` (yang clock in terakhir saat transaksi).
+    //
+    // [REVISI 2] Setiap baris juga membawa `price` = harga satuan SAAT TRANSAKSI (snapshot).
+    // Dengan begitu laporan tidak berubah walaupun nanti harga menu direvisi / menu dihapus.
+    // Butuh kolom nc_sales.price (lihat file SQL). Semua baris wajib punya key yang sama.
     const saleBase = { date: dateStr, ts, time_wib: nowHMS, payment_type, barista };
     const salesPayload = [];
     for (const it of items) {
       const bundle = bundleMap[it.menu_name];
       if (bundle) {
-        salesPayload.push({ ...saleBase, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
+        salesPayload.push({ ...saleBase, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket', price: bundle.bundle_price });
       } else if (redeem_free && it.menu_name === redeem_item) {
         const paidQty = it.qty - 1;
         if (paidQty > 0) {
-          salesPayload.push({ ...saleBase, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
+          salesPayload.push({ ...saleBase, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs', price: menuMap[it.menu_name].price });
         }
-        salesPayload.push({ ...saleBase, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
+        salesPayload.push({ ...saleBase, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs', price: 0 });
       } else {
-        salesPayload.push({ ...saleBase, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
+        salesPayload.push({ ...saleBase, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs', price: menuMap[it.menu_name].price });
       }
     }
 
     // 5b. Catat pemakaian bahan baku per gramasi (dari `deduction` di langkah 3) —
     // type:'manual' supaya kebaca sama seperti input manual barista di Forecast,
     // Dashboard, dan Export Laporan (Log Harian & Ringkasan Pemakaian).
-    // barista: null eksplisit supaya semua baris dalam satu insert punya kolom yang sama.
+    // barista & price: null eksplisit supaya semua baris dalam satu insert punya kolom yang sama.
     const unitMap = {};
     for (const r of recipeRows) unitMap[r.ingredient_name] = r.unit;
     const ingredientSalesPayload = ingredientNames.map((ing) => ({
@@ -276,6 +291,7 @@ export default async function handler(req, res) {
       item: ing,
       qty: Number(deduction[ing].toFixed(3)),
       unit: unitMap[ing] || '',
+      price: null,
     }));
 
     // 5c. Catat pemakaian promo diskon (kalau ada) — biar kelihatan "transaksi mana pakai promo apa" di Laporan
@@ -298,36 +314,47 @@ export default async function handler(req, res) {
         ? Math.round(base * appliedPromo.discount_percent / 100)
         : Math.min(appliedPromo.discount_fixed, base);
       promoSalesPayload.push({
-        ...saleBase, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
+        ...saleBase, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp', price: null,
       });
     }
 
+    // Ini satu-satunya langkah yang BOLEH menggagalkan transaksi (error 500): kalau penjualan
+    // gagal tercatat, belum ada data yang berubah, jadi aman bagi kasir untuk mengulang.
     await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload, ...promoSalesPayload]);
 
-    // 4. (dijalankan setelah penjualan tercatat) Kurangi stok, siapkan warning kalau kurang (tidak menghalangi transaksi)
+    // ---- Mulai dari sini penjualan SUDAH tercatat. ----
+    // [REVISI 3] Langkah 4 (stok) dan 6 (punch) dibungkus try/catch dan hanya menghasilkan WARNING.
+    // Kalau tidak, kegagalan di sini mengembalikan error 500, kasir mengira transaksi gagal,
+    // menekan Checkout lagi, dan penjualan tercatat DOBEL (omzet & stok ganda).
     const warnings = [];
-    if (ingredientNames.length > 0) {
-      const stockRows = await supabase(
-        'GET',
-        `nc_inventory?name=in.(${ingredientNames.map(encodeURIComponent).join(',')})`
-      );
-      const stockMap = Object.fromEntries(stockRows.map((s) => [s.name, s.stock]));
 
-      await Promise.all(ingredientNames.map((ing) => {
-        if (!(ing in stockMap)) {
-          warnings.push(`Bahan "${ing}" tidak ditemukan di nc_inventory — stok TIDAK dikurangi untuk bahan ini. Cek nama di resep vs nc_inventory.`);
-          return null;
-        }
-        const currentStock = stockMap[ing];
-        const newStock = currentStock - deduction[ing];
-        if (newStock < 0) {
-          warnings.push(`Stok "${ing}" minus (${newStock}) setelah transaksi ini`);
-        }
-        return supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
-          stock: newStock,
-          updated_at: new Date().toISOString(),
-        });
-      }));
+    // 4. Kurangi stok, siapkan warning kalau kurang (tidak menghalangi transaksi)
+    if (ingredientNames.length > 0) {
+      try {
+        const stockRows = await supabase(
+          'GET',
+          `nc_inventory?name=in.(${ingredientNames.map(encodeURIComponent).join(',')})`
+        );
+        const stockMap = Object.fromEntries(stockRows.map((s) => [s.name, s.stock]));
+
+        await Promise.all(ingredientNames.map((ing) => {
+          if (!(ing in stockMap)) {
+            warnings.push(`Bahan "${ing}" tidak ditemukan di nc_inventory — stok TIDAK dikurangi untuk bahan ini. Cek nama di resep vs nc_inventory.`);
+            return null;
+          }
+          const currentStock = stockMap[ing];
+          const newStock = currentStock - deduction[ing];
+          if (newStock < 0) {
+            warnings.push(`Stok "${ing}" minus (${newStock}) setelah transaksi ini`);
+          }
+          return supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
+            stock: newStock,
+            updated_at: new Date().toISOString(),
+          });
+        }));
+      } catch (e) {
+        warnings.push('Penjualan tercatat, tetapi stok gagal dikurangi: ' + String(e.message).slice(0, 120));
+      }
     }
 
     // Hitung berapa "cup" yang terjual di transaksi ini untuk keperluan punch loyalty.
@@ -357,30 +384,34 @@ export default async function handler(req, res) {
     // hadiah gratisnya, bukan menabung punch baru dari transaksi yang sama).
     let punchResult = null;
     if (customer_email) {
-      if (redeem_free) {
-        const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: punchRecord.punches - PUNCHES_FOR_FREE,
-          free_redeemed: punchRecord.free_redeemed + 1,
-          updated_at: new Date().toISOString(),
-        });
-        punchResult = updated[0];
-      } else if (punchRecord) {
-        const addPunches = computePunchCount();
-        const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: punchRecord.punches + addPunches,
-          total_punches: punchRecord.total_punches + addPunches,
-          updated_at: new Date().toISOString(),
-        });
-        punchResult = updated[0];
-      } else {
-        const addPunches = computePunchCount();
-        const created = await supabase('POST', 'punches', {
-          email: customer_email,
-          punches: addPunches,
-          total_punches: addPunches,
-          free_redeemed: 0,
-        });
-        punchResult = created[0];
+      try {
+        if (redeem_free) {
+          const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
+            punches: punchRecord.punches - PUNCHES_FOR_FREE,
+            free_redeemed: punchRecord.free_redeemed + 1,
+            updated_at: new Date().toISOString(),
+          });
+          punchResult = updated[0];
+        } else if (punchRecord) {
+          const addPunches = computePunchCount();
+          const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
+            punches: punchRecord.punches + addPunches,
+            total_punches: punchRecord.total_punches + addPunches,
+            updated_at: new Date().toISOString(),
+          });
+          punchResult = updated[0];
+        } else {
+          const addPunches = computePunchCount();
+          const created = await supabase('POST', 'punches', {
+            email: customer_email,
+            punches: addPunches,
+            total_punches: addPunches,
+            free_redeemed: 0,
+          });
+          punchResult = created[0];
+        }
+      } catch (e) {
+        warnings.push('Penjualan tercatat, tetapi punch customer gagal diperbarui: ' + String(e.message).slice(0, 120));
       }
     }
 
