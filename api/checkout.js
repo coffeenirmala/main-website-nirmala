@@ -78,6 +78,26 @@ export default async function handler(req, res) {
     const nowHMS = wib.hms;
     const ts = Date.now();
 
+    // Barista yang bertugas = yang CLOCK IN PALING AKHIR hari ini (dibaca dari absensi lewat rpc_barista_now).
+    // Dicatat permanen di setiap baris penjualan transaksi ini. Kalau gagal dibaca, checkout TETAP jalan
+    // (kolom barista dikosongkan) supaya penjualan tidak pernah tertahan gara-gara absensi.
+    let barista = null;
+    try {
+      const rb = await fetch(`${SUPABASE_URL}/rest/v1/rpc/rpc_barista_now`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      });
+      if (rb.ok) {
+        const nm = await rb.json();
+        if (typeof nm === 'string' && nm.trim()) barista = nm.trim();
+      }
+    } catch (e) { /* abaikan: barista tetap null */ }
+
     // 1. Ambil harga menu terbaru DAN promo bundle terkait dari DB (jangan percaya harga dari client)
     const itemNames = items.map((i) => i.menu_name);
     const encodedNames = itemNames.map(encodeURIComponent).join(',');
@@ -218,29 +238,32 @@ export default async function handler(req, res) {
     }
 
     // 5a. Catat penjualan ke nc_sales (satu baris per menu item) — dipakai sales-report.js untuk omzet
-    // time_wib sekarang berformat HH:MM:SS (jam Jakarta, lengkap dengan detik).
+    // time_wib berformat HH:MM:SS (jam Jakarta, lengkap dengan detik).
     // Kalau ada item yang di-redeem gratis, pisahkan 1 pcs-nya jadi baris 'pos_sale_free'
     // (qty gratis = 1, tetap tercatat untuk potong stok bahan baku, tapi TIDAK dihitung sebagai omzet)
     // CATATAN: item bundle dicatat sebagai type 'pos_sale_bundle' dengan qty = jumlah paket terjual.
+    // Setiap baris penjualan membawa `barista` (yang clock in terakhir saat transaksi).
+    const saleBase = { date: dateStr, ts, time_wib: nowHMS, payment_type, barista };
     const salesPayload = [];
     for (const it of items) {
       const bundle = bundleMap[it.menu_name];
       if (bundle) {
-        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
+        salesPayload.push({ ...saleBase, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
       } else if (redeem_free && it.menu_name === redeem_item) {
         const paidQty = it.qty - 1;
         if (paidQty > 0) {
-          salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
+          salesPayload.push({ ...saleBase, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
         }
-        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
+        salesPayload.push({ ...saleBase, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
       } else {
-        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
+        salesPayload.push({ ...saleBase, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
       }
     }
 
     // 5b. Catat pemakaian bahan baku per gramasi (dari `deduction` di langkah 3) —
     // type:'manual' supaya kebaca sama seperti input manual barista di Forecast,
     // Dashboard, dan Export Laporan (Log Harian & Ringkasan Pemakaian).
+    // barista: null eksplisit supaya semua baris dalam satu insert punya kolom yang sama.
     const unitMap = {};
     for (const r of recipeRows) unitMap[r.ingredient_name] = r.unit;
     const ingredientSalesPayload = ingredientNames.map((ing) => ({
@@ -248,6 +271,7 @@ export default async function handler(req, res) {
       ts,
       time_wib: null,
       payment_type: null,
+      barista: null,
       type: 'manual',
       item: ing,
       qty: Number(deduction[ing].toFixed(3)),
@@ -274,7 +298,7 @@ export default async function handler(req, res) {
         ? Math.round(base * appliedPromo.discount_percent / 100)
         : Math.min(appliedPromo.discount_fixed, base);
       promoSalesPayload.push({
-        date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
+        ...saleBase, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
       });
     }
 
@@ -369,11 +393,14 @@ export default async function handler(req, res) {
     }
     total = Math.max(0, total);
 
+    if (!barista) warnings.push('Tidak ada barista yang clock in — transaksi tercatat tanpa nama barista');
+
     return res.status(200).json({
       ok: true,
       total,
       warnings,
       punch: punchResult,
+      barista,
       redeemed_item: redeem_free ? redeem_item : null,
       applied_promo: appliedPromo ? appliedPromo.name : null,
       discount_amount: discountAmount,
