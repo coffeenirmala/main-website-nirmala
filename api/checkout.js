@@ -208,6 +208,8 @@ export default async function handler(req, res) {
       }
     }
 
+    const ingredientNames = Object.keys(deduction); // dipakai pencatatan bahan (5b) & pengurangan stok (4)
+
     // Helper: harga 1 baris keranjang (menu biasa pakai nc_menu.price, bundle pakai bundle_price promo)
     function lineTotal(it) {
       const bundle = bundleMap[it.menu_name];
@@ -279,7 +281,6 @@ export default async function handler(req, res) {
     await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload, ...promoSalesPayload]);
 
     // 4. (dijalankan setelah penjualan tercatat) Kurangi stok, siapkan warning kalau kurang (tidak menghalangi transaksi)
-    const ingredientNames = Object.keys(deduction);
     const warnings = [];
     if (ingredientNames.length > 0) {
       const stockRows = await supabase(
