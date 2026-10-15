@@ -54,16 +54,28 @@ export default async function handler(req, res) {
     if (redeem_free && promo_id) {
       return res.status(400).json({ error: 'Redeem gratis dan promo diskon tidak boleh dipakai bersamaan' });
     }
-    // Server Vercel jalan di UTC, tapi toko beroperasi di WIB (UTC+7).
-    // Kalau pakai waktu server langsung, jam 16:05 WIB kebaca sebagai 09:05,
-    // jadi salah tolak promo happy hour yang lagi aktif.
-    function nowWIB() {
-      const utcNow = new Date();
-      return new Date(utcNow.getTime() + 7 * 60 * 60 * 1000); // UTC+7
+
+    // Server Vercel jalan di UTC, tapi toko beroperasi di WIB (Asia/Jakarta).
+    // Semua tanggal & jam diambil langsung dari zona Asia/Jakarta (bukan hitungan manual +7 jam).
+    function wibParts(d = new Date()) {
+      const p = Object.fromEntries(
+        new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Jakarta',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(d).map((x) => [x.type, x.value])
+      );
+      return {
+        date: `${p.year}-${p.month}-${p.day}`,       // YYYY-MM-DD
+        hm: `${p.hour}:${p.minute}`,                 // HH:MM (untuk cek jam promo)
+        hms: `${p.hour}:${p.minute}:${p.second}`,    // HH:MM:SS (disimpan ke time_wib)
+      };
     }
-    const wib = nowWIB();
-    const dateStr = wib.toISOString().slice(0, 10); // YYYY-MM-DD, sudah WIB
-    const nowTime = wib.toISOString().slice(11, 16); // HH:MM, sudah WIB
+    const wib = wibParts();
+    const dateStr = wib.date;
+    const nowTime = wib.hm;
+    const nowHMS = wib.hms;
     const ts = Date.now();
 
     // 1. Ambil harga menu terbaru DAN promo bundle terkait dari DB (jangan percaya harga dari client)
@@ -231,6 +243,7 @@ export default async function handler(req, res) {
     }
 
     // 5a. Catat penjualan ke nc_sales (satu baris per menu item) — dipakai sales-report.js untuk omzet
+    // time_wib sekarang berformat HH:MM:SS (jam Jakarta, lengkap dengan detik).
     // Kalau ada item yang di-redeem gratis, pisahkan 1 pcs-nya jadi baris 'pos_sale_free'
     // (qty gratis = 1, tetap tercatat untuk potong stok bahan baku, tapi TIDAK dihitung sebagai omzet)
     // CATATAN: item bundle dicatat sebagai type 'pos_sale_bundle' dengan qty = jumlah paket terjual.
@@ -238,15 +251,15 @@ export default async function handler(req, res) {
     for (const it of items) {
       const bundle = bundleMap[it.menu_name];
       if (bundle) {
-        salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
+        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
       } else if (redeem_free && it.menu_name === redeem_item) {
         const paidQty = it.qty - 1;
         if (paidQty > 0) {
-          salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
+          salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
         }
-        salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
+        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
       } else {
-        salesPayload.push({ date: dateStr, ts, time_wib: nowTime, payment_type, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
+        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
       }
     }
 
@@ -286,7 +299,7 @@ export default async function handler(req, res) {
         ? Math.round(base * appliedPromo.discount_percent / 100)
         : Math.min(appliedPromo.discount_fixed, base);
       promoSalesPayload.push({
-        date: dateStr, ts, time_wib: null, payment_type: null, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
+        date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
       });
     }
 
@@ -313,7 +326,7 @@ export default async function handler(req, res) {
       }
       return count;
     }
-    
+
     // 6. Loyalty punch (kalau ada customer)
     // Catatan: kalau redeem_free, transaksi ini TIDAK menambah punch baru (customer memakai
     // hadiah gratisnya, bukan menabung punch baru dari transaksi yang sama).
