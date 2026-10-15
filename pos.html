@@ -11,8 +11,6 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .logo { text-align: center; margin-bottom: 1.5rem; }
 .logo h1 { font-size: 22px; font-weight: 500; letter-spacing: 0.05em; }
 .logo p { font-size: 13px; color: #888; margin-top: 4px; }
-
-/* PIN */
 .pin-card { background: #fff; border: 0.5px solid #ddd; border-radius: 12px; padding: 2rem 1.5rem; text-align: center; max-width: 340px; margin: 2rem auto; }
 .pin-label { font-size: 14px; color: #666; margin-bottom: 1.5rem; }
 .pin-dots { display: flex; justify-content: center; gap: 12px; margin-bottom: 1.5rem; }
@@ -22,8 +20,6 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .key { background: #f5f4f0; border: 0.5px solid #ddd; border-radius: 8px; padding: 14px; font-size: 18px; font-weight: 500; cursor: pointer; }
 .key.del { font-size: 13px; color: #888; }
 .pin-error { font-size: 13px; color: #c00; margin-top: 1rem; min-height: 20px; }
-
-/* Layout utama */
 .app { display: none; }
 .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px; }
 .header-bar h2 { font-size: 16px; font-weight: 500; }
@@ -36,28 +32,29 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
-/* Kasir */
-.kasir-grid { display: grid; grid-template-columns: 1fr 340px; gap: 1rem; }
-@media (max-width: 720px) { .kasir-grid { grid-template-columns: 1fr; } }
+/* Kasir — min-width:0 mencegah kolom menu melebar & mendorong keranjang keluar layar */
+.kasir-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; }
+.kasir-grid > * { min-width: 0; }
+@media (max-width: 860px) { .kasir-grid { grid-template-columns: minmax(0, 1fr); } }
 .menu-search { margin-bottom: 0.75rem; }
 .menu-search input { width: 100%; padding: 10px 14px; font-size: 15px; border: 0.5px solid #ccc; border-radius: 8px; }
 .menu-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
 .menu-item { background: #fff; border: 0.5px solid #eee; border-radius: 12px; padding: 14px 10px; text-align: center; cursor: pointer; }
 .menu-item:active { background: #f0f0f0; }
-.menu-item .name { font-size: 13px; font-weight: 500; }
+.menu-item .name { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
 .menu-item .price { font-size: 12px; color: #888; margin-top: 4px; }
 .category-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin: 12px 0 8px; }
 .cat-filter-bar { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 0.75rem; padding-bottom: 2px; }
 .cat-chip { flex-shrink: 0; padding: 7px 14px; border-radius: 20px; border: 0.5px solid #ddd; background: #fff; font-size: 12px; font-weight: 500; color: #666; cursor: pointer; white-space: nowrap; }
 .cat-chip.active { background: #3C3489; color: #fff; border-color: #3C3489; }
-
 .cart-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; height: fit-content; }
 .cart-title { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
 .cart-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid #f0f0f0; font-size: 13px; }
-.cart-line-name { flex: 1; }
+.cart-line-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .qty-ctrl { display: flex; align-items: center; gap: 8px; }
-.qty-ctrl button { width: 24px; height: 24px; border-radius: 6px; border: 0.5px solid #ccc; background: #fff; font-size: 14px; cursor: pointer; }
+.qty-ctrl button { width: 28px; height: 28px; border-radius: 6px; border: 0.5px solid #ccc; background: #fff; font-size: 14px; cursor: pointer; }
 .cart-total { display: flex; justify-content: space-between; font-size: 15px; font-weight: 500; margin: 12px 0; }
+.cart-disc { display: flex; justify-content: space-between; font-size: 12px; color: #085041; margin-top: 8px; }
 .payment-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
 .payment-options { display: flex; gap: 8px; margin-top: 6px; }
 .payment-chip { flex: 1; padding: 10px; border-radius: 8px; border: 0.5px solid #ccc; background: #fff; font-size: 13px; font-weight: 500; color: #666; cursor: pointer; }
@@ -67,7 +64,7 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .customer-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
 .customer-box input { width: 100%; padding: 8px 10px; font-size: 13px; border: 0.5px solid #ccc; border-radius: 6px; margin-top: 6px; }
 .customer-results { max-height: 140px; overflow-y: auto; margin-top: 6px; }
-.customer-result { padding: 6px 8px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+.customer-result { padding: 6px 8px; font-size: 12px; border-radius: 6px; cursor: pointer; overflow-wrap: anywhere; }
 .customer-result:hover { background: #EEEDFE; }
 .customer-selected { display: flex; justify-content: space-between; align-items: center; background: #EEEDFE; padding: 6px 10px; border-radius: 6px; font-size: 12px; margin-top: 6px; }
 .customer-selected button { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; }
@@ -77,7 +74,6 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .punch-dot { flex: 1; height: 6px; border-radius: 3px; background: #ddd; }
 .punch-dot.on { background: #3C3489; }
 .btn-redeem { width: 100%; margin-top: 8px; padding: 9px; background: #085041; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; }
-.btn-redeem:disabled { opacity: 0.4; cursor: default; }
 .btn-cancel-redeem { width: 100%; margin-top: 6px; padding: 7px; background: none; border: 0.5px solid #ccc; border-radius: 8px; font-size: 11px; color: #888; cursor: pointer; }
 .redeem-banner { font-size: 11px; color: #085041; background: #E6F3EF; border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; }
 .cart-line.pickable { cursor: pointer; background: #FFFBEA; margin: 0 -8px; padding: 8px; border-radius: 6px; }
@@ -95,9 +91,12 @@ body { font-family: system-ui, sans-serif; background: #f5f4f0; min-height: 100v
 .btn-secondary { padding: 8px 16px; background: #085041; color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
 .report-summary { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; margin-bottom: 1rem; }
 .report-total { font-size: 20px; font-weight: 500; }
+.report-warn { font-size: 11px; color: #a06b00; margin-top: 6px; }
+.sec-title { font-size: 13px; font-weight: 500; margin: 18px 0 8px; }
 table.report-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; font-size: 13px; }
-table.report-table th, table.report-table td { text-align: left; padding: 8px 10px; border-bottom: 0.5px solid #eee; }
+table.report-table th, table.report-table td { text-align: left; padding: 8px 10px; border-bottom: 0.5px solid #eee; white-space: nowrap; }
 table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
+table.report-table td.neg { color: #085041; }
 
 /* Kelola Menu */
 .form-card { background: #fff; border-radius: 12px; border: 0.5px solid #eee; padding: 1rem; margin-bottom: 1rem; }
@@ -105,7 +104,7 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 .form-row input, .form-row select { flex: 1; min-width: 120px; padding: 8px 10px; border: 0.5px solid #ccc; border-radius: 6px; font-size: 13px; }
 .btn-add { padding: 8px 16px; background: #3C3489; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
 .menu-manage-item { background: #fff; border-radius: 10px; border: 0.5px solid #eee; padding: 10px 14px; margin-bottom: 8px; }
-.menu-manage-item .top { display: flex; justify-content: space-between; align-items: center; }
+.menu-manage-item .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .menu-manage-item .top strong { font-size: 14px; }
 .menu-manage-item .top span { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
 .quick-cat-select { font-size: 11px; padding: 3px 6px; border-radius: 5px; border: 0.5px solid #ccc; background: #fff; color: #444; }
@@ -113,7 +112,6 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 .menu-manage-item.needs-cat-fix .quick-cat-select { border-color: #e0a800; }
 .recipe-list { margin-top: 6px; font-size: 12px; color: #666; }
 .small-btn { font-size: 11px; color: #c00; background: none; border: none; cursor: pointer; }
-
 .promo-type-fields { display: none; gap: 8px; flex-wrap: wrap; width: 100%; }
 .promo-type-fields.show { display: flex; }
 .promo-list-item { background: #fff; border-radius: 10px; border: 0.5px solid #eee; padding: 10px 14px; margin-bottom: 8px; }
@@ -123,8 +121,7 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 .promo-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
 .promo-status.aktif { background: #E6F3EF; color: #085041; }
 .promo-status.belum { background: #FFF6E0; color: #a06b00; }
-.promo-status.selesai { background: #f0f0f0; color: #888; }
-.promo-status.tutup { background: #f0f0f0; color: #888; }
+.promo-status.selesai, .promo-status.tutup { background: #f0f0f0; color: #888; }
 .promo-box { margin: 12px 0; padding: 10px; background: #f5f4f0; border-radius: 8px; font-size: 13px; }
 .promo-pick-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; border: 0.5px solid #ddd; margin-top: 6px; background: #fff; }
 .promo-pick-item:hover { background: #EEEDFE; }
@@ -132,8 +129,7 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 .promo-applied button { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; }
 .promo-menu-picker { display: flex; flex-wrap: wrap; gap: 6px; max-height: 140px; overflow-y: auto; padding: 8px; border: 0.5px solid #ddd; border-radius: 8px; width: 100%; margin-top: 4px; }
 .promo-menu-picker label { display: flex; align-items: center; gap: 4px; font-size: 12px; background: #f5f4f0; padding: 4px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
-
-.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; }
 .empty { text-align: center; padding: 1.5rem; color: #888; font-size: 13px; }
 </style>
@@ -141,81 +137,53 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
 </head>
 <body>
 <div class="screen">
-  <div class="logo">
-    <h1>Nirmala</h1>
-    <p>Kasir</p>
-  </div>
+  <div class="logo"><h1>Nirmala</h1><p>Kasir</p></div>
 
-  <!-- PIN Screen -->
   <div class="pin-card" id="pin-screen">
     <p class="pin-label">Masukkan PIN untuk lanjut</p>
     <div class="pin-dots">
-      <div class="pin-dot" id="d0"></div>
-      <div class="pin-dot" id="d1"></div>
-      <div class="pin-dot" id="d2"></div>
-      <div class="pin-dot" id="d3"></div>
+      <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
     </div>
     <div class="numpad">
-      <button class="key" onclick="pressKey('1')">1</button>
-      <button class="key" onclick="pressKey('2')">2</button>
-      <button class="key" onclick="pressKey('3')">3</button>
-      <button class="key" onclick="pressKey('4')">4</button>
-      <button class="key" onclick="pressKey('5')">5</button>
-      <button class="key" onclick="pressKey('6')">6</button>
-      <button class="key" onclick="pressKey('7')">7</button>
-      <button class="key" onclick="pressKey('8')">8</button>
-      <button class="key" onclick="pressKey('9')">9</button>
-      <button class="key del" onclick="pressKey('del')">hapus</button>
-      <button class="key" onclick="pressKey('0')">0</button>
-      <button class="key del" style="font-size:18px" onclick="pressKey('ok')">ok</button>
+      <button class="key" onclick="pressKey('1')">1</button><button class="key" onclick="pressKey('2')">2</button><button class="key" onclick="pressKey('3')">3</button>
+      <button class="key" onclick="pressKey('4')">4</button><button class="key" onclick="pressKey('5')">5</button><button class="key" onclick="pressKey('6')">6</button>
+      <button class="key" onclick="pressKey('7')">7</button><button class="key" onclick="pressKey('8')">8</button><button class="key" onclick="pressKey('9')">9</button>
+      <button class="key del" onclick="pressKey('del')">hapus</button><button class="key" onclick="pressKey('0')">0</button><button class="key del" style="font-size:18px" onclick="pressKey('ok')">ok</button>
     </div>
     <p class="pin-error" id="pin-error"></p>
   </div>
 
-  <!-- App -->
   <div class="app" id="app-screen">
     <div class="header-bar">
-      <div>
-        <h2>Nirmala Kasir</h2>
-        <div class="greet" id="shift-greeting">Memuat barista…</div>
-      </div>
+      <div><h2>Nirmala Kasir</h2><div class="greet" id="shift-greeting">Memuat barista…</div></div>
       <button class="logout-btn" onclick="logout()">Keluar</button>
     </div>
-
     <div class="tabs">
       <button class="tab-btn active" data-tab="kasir" onclick="switchTab('kasir')">Kasir</button>
       <button class="tab-btn" data-tab="laporan" onclick="switchTab('laporan')">Laporan</button>
       <button class="tab-btn" data-tab="kelola" onclick="switchTab('kelola')">Kelola Menu</button>
     </div>
 
-    <!-- Tab: Kasir -->
     <div class="tab-panel active" id="tab-kasir">
       <div class="kasir-grid">
         <div>
-          <div class="menu-search">
-            <input type="text" id="menu-search-input" placeholder="Cari menu..." oninput="renderMenu()" />
-          </div>
+          <div class="menu-search"><input type="text" id="menu-search-input" placeholder="Cari menu..." oninput="renderMenu()" /></div>
           <div class="cat-filter-bar" id="cat-filter-bar"></div>
           <div id="menu-items-container"><div class="empty">Memuat menu...</div></div>
         </div>
-
         <div class="cart-card">
           <div class="cart-title">Keranjang</div>
           <div id="cart-lines"><div class="empty">Belum ada item</div></div>
-          <div class="cart-total">
-            <span>Total</span>
-            <span id="cart-total-val">Rp 0</span>
-          </div>
-
+          <div id="cart-disc"></div>
+          <div class="cart-total"><span>Total</span><span id="cart-total-val">Rp 0</span></div>
           <div class="customer-box">
             <strong style="font-size:12px">Customer (opsional)</strong>
             <input type="text" id="customer-search" placeholder="Cari nama customer..." oninput="searchCustomer()" />
             <div class="customer-results" id="customer-results"></div>
             <div id="customer-selected-box"></div>
           </div>
-
           <div id="promo-box"></div>
-
           <div class="payment-box">
             <strong style="font-size:12px">Metode Pembayaran</strong>
             <div class="payment-options">
@@ -224,20 +192,16 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
             </div>
             <div class="payment-required-hint" id="payment-required-hint">Pilih metode pembayaran dulu</div>
           </div>
-
           <button class="btn-checkout" id="btn-checkout" onclick="checkout()" disabled>Checkout</button>
           <button class="btn-clear" onclick="clearCart()">Kosongkan keranjang</button>
         </div>
       </div>
     </div>
 
-    <!-- Tab: Laporan -->
     <div class="tab-panel" id="tab-laporan">
       <div class="report-controls">
         <select id="report-range" onchange="loadReport()">
-          <option value="daily">Harian</option>
-          <option value="weekly">Mingguan</option>
-          <option value="monthly">Bulanan</option>
+          <option value="daily">Harian</option><option value="weekly">Mingguan</option><option value="monthly">Bulanan</option>
         </select>
         <input type="date" id="report-date" onchange="loadReport()" />
         <button class="btn-secondary" onclick="downloadExcel()">Download Excel</button>
@@ -245,42 +209,44 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
       <div class="report-summary">
         <div style="font-size:12px;color:#888" id="report-range-label">—</div>
         <div class="report-total" id="report-total">Rp 0</div>
+        <div class="report-warn" id="report-warn"></div>
       </div>
-      <div style="font-size:13px;font-weight:500;margin:14px 0 8px">Log Transaksi</div>
+      <div class="sec-title">Rekap per Shift &amp; Barista</div>
       <div style="overflow-x:auto">
-        <table class="report-table" id="report-table">
-          <thead><tr><th>Tanggal</th><th>Waktu</th><th>Menu Item</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th>Tipe Pembayaran</th><th>Tipe</th></tr></thead>
-          <tbody id="report-tbody"><tr><td colspan="8" class="empty">Memuat...</td></tr></tbody>
+        <table class="report-table">
+          <thead><tr><th>Tanggal</th><th>Shift</th><th>Barista (clock in)</th><th>Cup</th><th>Omzet</th></tr></thead>
+          <tbody id="report-shift-tbody"><tr><td colspan="5" class="empty">Memuat...</td></tr></tbody>
         </table>
       </div>
-      <div style="font-size:13px;font-weight:500;margin:20px 0 8px">Ringkasan Penjualan (paling laku duluan)</div>
+      <div class="sec-title">Log Transaksi</div>
       <div style="overflow-x:auto">
-        <table class="report-table" id="report-summary-table">
+        <table class="report-table">
+          <thead><tr><th>Tanggal</th><th>Waktu</th><th>Shift</th><th>Barista</th><th>Menu Item</th><th>Qty</th><th>Harga</th><th>Subtotal</th><th>Bayar</th><th>Tipe</th></tr></thead>
+          <tbody id="report-tbody"><tr><td colspan="10" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="sec-title">Ringkasan Penjualan (paling laku duluan)</div>
+      <div style="overflow-x:auto">
+        <table class="report-table">
           <thead><tr><th>Nama Item</th><th>Qty</th><th>Total (Rp)</th></tr></thead>
           <tbody id="report-summary-tbody"><tr><td colspan="3" class="empty">Memuat...</td></tr></tbody>
         </table>
       </div>
     </div>
 
-    <!-- Tab: Kelola Menu -->
     <div class="tab-panel" id="tab-kelola">
       <div class="form-card">
         <strong style="font-size:13px">Tambah / Update Menu</strong>
         <div class="form-row" style="margin-top:8px">
           <input type="text" id="new-menu-name" placeholder="Nama menu (mis. Cappuccino)" />
           <select id="new-menu-category">
-            <option value="Coffee">Coffee</option>
-            <option value="Non Coffee">Non Coffee</option>
-            <option value="Mocktail">Mocktail</option>
-            <option value="Makanan">Makanan</option>
-            <option value="Snack">Snack</option>
-            <option value="Lainnya">Lainnya</option>
+            <option value="Coffee">Coffee</option><option value="Non Coffee">Non Coffee</option><option value="Mocktail">Mocktail</option>
+            <option value="Makanan">Makanan</option><option value="Snack">Snack</option><option value="Lainnya">Lainnya</option>
           </select>
           <input type="number" id="new-menu-price" placeholder="Harga jual (Rp)" />
           <button class="btn-add" onclick="addMenu()">Simpan</button>
         </div>
       </div>
-
       <div class="form-card">
         <strong style="font-size:13px">Tambah Resep (bahan baku per menu)</strong>
         <div class="form-row" style="margin-top:8px">
@@ -291,108 +257,78 @@ table.report-table th { background: #f5f4f0; font-weight: 500; color: #666; }
           <button class="btn-add" onclick="addRecipe()">Tambah</button>
         </div>
       </div>
-
       <div class="form-card">
         <strong style="font-size:13px">Tambah Promo</strong>
         <div class="form-row" style="margin-top:8px">
           <input type="text" id="promo-name" placeholder="Nama promo (mis. Diskon Member 10%)" />
           <select id="promo-type" onchange="togglePromoTypeFields()">
-            <option value="discount_percent">Diskon %</option>
-            <option value="discount_fixed">Diskon Nominal</option>
-            <option value="bundle">Bundle (beberapa menu beda)</option>
-            <option value="bundle_qty">Bundle (menu sama, N pcs)</option>
+            <option value="discount_percent">Diskon %</option><option value="discount_fixed">Diskon Nominal</option>
+            <option value="bundle">Bundle (beberapa menu beda)</option><option value="bundle_qty">Bundle (menu sama, N pcs)</option>
           </select>
         </div>
-
-        <div class="form-row promo-type-fields show" id="fields-discount_percent">
-          <input type="number" id="promo-discount-percent" placeholder="Persen diskon (mis. 10)" />
-        </div>
-        <div class="form-row promo-type-fields" id="fields-discount_fixed">
-          <input type="number" id="promo-discount-fixed" placeholder="Potongan Rp (mis. 5000)" />
-        </div>
+        <div class="form-row promo-type-fields show" id="fields-discount_percent"><input type="number" id="promo-discount-percent" placeholder="Persen diskon (mis. 10)" /></div>
+        <div class="form-row promo-type-fields" id="fields-discount_fixed"><input type="number" id="promo-discount-fixed" placeholder="Potongan Rp (mis. 5000)" /></div>
         <div class="form-row promo-type-fields show" id="fields-discount-menu-wrap">
-          <div style="width:100%">
-            <strong style="font-size:11px;color:#888">Berlaku untuk menu (kosongkan = semua menu)</strong>
-            <div class="promo-menu-picker" id="promo-discount-menu-picker"></div>
-          </div>
+          <div style="width:100%"><strong style="font-size:11px;color:#888">Berlaku untuk menu (kosongkan = semua menu)</strong>
+            <div class="promo-menu-picker" id="promo-discount-menu-picker"></div></div>
         </div>
-
         <div class="form-row promo-type-fields" id="fields-bundle">
-          <div style="width:100%">
-            <strong style="font-size:11px;color:#888">Pilih menu yang masuk bundle (min. 2)</strong>
-            <div class="promo-menu-picker" id="promo-bundle-menu-picker"></div>
-          </div>
+          <div style="width:100%"><strong style="font-size:11px;color:#888">Pilih menu yang masuk bundle (min. 2)</strong>
+            <div class="promo-menu-picker" id="promo-bundle-menu-picker"></div></div>
           <input type="number" id="promo-bundle-price" placeholder="Harga paket (Rp)" style="margin-top:8px" />
         </div>
-
         <div class="form-row promo-type-fields" id="fields-bundle_qty">
           <select id="promo-bundle-qty-menu"></select>
           <input type="number" id="promo-bundle-qty-count" placeholder="Jumlah pcs (mis. 3)" min="2" />
           <input type="number" id="promo-bundle-qty-price" placeholder="Harga paket (Rp)" />
         </div>
-
         <div class="form-row" style="margin-top:8px">
-          <div>
-            <strong style="font-size:11px;color:#888">Tanggal berlaku</strong><br/>
-            <input type="date" id="promo-from" />
-            <input type="date" id="promo-until" />
-          </div>
-          <div>
-            <strong style="font-size:11px;color:#888">Jam berlaku tiap hari (opsional — utk happy hour)</strong><br/>
-            <input type="time" id="promo-time-from" />
-            <input type="time" id="promo-time-until" />
-          </div>
+          <div><strong style="font-size:11px;color:#888">Tanggal berlaku</strong><br/><input type="date" id="promo-from" /> <input type="date" id="promo-until" /></div>
+          <div><strong style="font-size:11px;color:#888">Jam berlaku tiap hari (opsional — utk happy hour)</strong><br/><input type="time" id="promo-time-from" /> <input type="time" id="promo-time-until" /></div>
         </div>
-        <div class="form-row">
-          <button class="btn-add" onclick="addPromo()">Simpan Promo</button>
-        </div>
+        <div class="form-row"><button class="btn-add" onclick="addPromo()">Simpan Promo</button></div>
       </div>
       <div id="promo-manage-list"><div class="empty">Memuat daftar promo...</div></div>
-
       <div id="menu-manage-list"><div class="empty">Memuat daftar menu...</div></div>
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
 const CORRECT_PIN = '1234';
-let pin = '';
-let allMenu = [];
-let allRecipes = [];
-let allInventory = [];
-let cart = []; // { menu_name, price, qty }
-let selectedCustomer = null; // { email, name }
-let allMembers = [];
-let currentReport = null;
 const PUNCHES_FOR_FREE = 8;
-// Daftar kategori tetap. Kalau nambah kategori baru, update juga <option> di
-// #new-menu-category (form Kelola Menu) supaya keduanya sinkron.
+// Kalau nambah kategori, update juga <option> di #new-menu-category.
 const MENU_CATEGORIES = ['Coffee', 'Non Coffee', 'Mocktail', 'Makanan', 'Snack', 'Lainnya'];
-let selectedCategory = 'all'; // 'all' = tampilkan semua kategori
-let customerPunch = null;   // { punches, total_punches, free_redeemed }
-let redeemMode = false;     // true = barista sedang memilih item mana yang digratiskan
-let redeemItemName = null;  // menu_name item yang dipilih gratis
-let allPromos = [];         // semua promo dari nc_promos
-let selectedPromoId = null; // id promo yang sedang dipakai di transaksi ini
-let selectedPayment = null; // 'cash' | 'qris' — wajib dipilih sebelum checkout
+let pin = '';
+let allMenu = [], allRecipes = [], allInventory = [], allMembers = [], allPromos = [];
+let cart = [];                 // { menu_name, price, qty }
+let selectedCustomer = null;   // { email, name }
+let customerPunch = null;      // { punches, total_punches, free_redeemed }
+let currentReport = null;
+let selectedCategory = 'all';
+let redeemMode = false, redeemItemName = null;
+let selectedPromoId = null;
+let selectedPayment = null;    // 'cash' | 'qris'
 
-// ---------- Sapaan barista shift (terintegrasi dengan sistem absen) ----------
+const $ = id => document.getElementById(id);
+const rp = n => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jsq = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+// ---------- Waktu WIB (jangan pakai toISOString/toTimeString: itu UTC / jam perangkat) ----------
+const wibDate = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });
+const wibHM = () => new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false });
+const wibMinutes = () => { const [h, m] = wibHM().split(':').map(Number); return (h % 24) * 60 + m; };
+
+// ---------- Sapaan barista: HANYA yang clock in untuk shift saat ini ----------
 const ABSEN_URL = 'https://ddxwkqfpxtbdfosfzmam.supabase.co';
 const ABSEN_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkeHdrcWZweHRiZGZvc2Z6bWFtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDI3OTUsImV4cCI6MjA5MDE3ODc5NX0.-X8k78co46tVY4lnFTsfdGTIpJPkWjwmkEAkvpuxmk0';
 let shiftTimer = null;
 let onShift = [];
 
-function wibMinutes() {
-  const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
-  const h = parseInt(p.find(x => x.type === 'hour').value, 10) % 24;
-  const m = parseInt(p.find(x => x.type === 'minute').value, 10);
-  return h * 60 + m;
-}
 function joinNames(names) {
-  if (names.length <= 1) return names.join('');
-  return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
+  return names.length <= 1 ? names.join('') : names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
 }
 async function loadOnShift() {
   try {
@@ -402,22 +338,19 @@ async function loadOnShift() {
       body: '{}',
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    onShift = await res.json();
-  } catch (e) {
-    onShift = null;
-  }
+    const j = await res.json();
+    onShift = Array.isArray(j) ? j : [];
+  } catch (e) { onShift = null; }
   renderGreeting();
 }
 function renderGreeting() {
-  const el = document.getElementById('shift-greeting');
+  const el = $('shift-greeting');
   if (!el) return;
   if (onShift === null) { el.className = 'greet warn'; el.textContent = 'Status shift tidak terbaca'; return; }
-  if (!onShift.length) { el.className = 'greet warn'; el.textContent = 'Belum ada barista yang clock in'; return; }
-  // Shift 1 berakhir 15:00. Barista shift lama yang lupa clock out tidak ikut disapa.
-  const currentShift = wibMinutes() < 15 * 60 ? 1 : 2;
-  let active = onShift.filter(r => r.shift >= currentShift);
-  if (!active.length) active = onShift; // mis. shift 1 lembur sendirian
-  const names = [...new Set(active.map(r => r.name))];
+  // Shift 1 sebelum 15:00, Shift 2 setelahnya. Barista shift lama yang lupa clock out tidak ikut disapa.
+  const cur = wibMinutes() < 15 * 60 ? 1 : 2;
+  const names = [...new Set(onShift.filter(r => Number(r.shift) === cur).map(r => r.name))];
+  if (!names.length) { el.className = 'greet warn'; el.textContent = 'Belum ada barista shift ' + cur + ' yang clock in'; return; }
   el.className = 'greet';
   el.textContent = '👋 Hi ' + joinNames(names) + '!';
 }
@@ -425,38 +358,28 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && sh
 
 // ---------- PIN ----------
 function pressKey(k) {
-  if (k === 'del') { pin = pin.slice(0, -1); }
+  if (k === 'del') pin = pin.slice(0, -1);
   else if (k === 'ok') { checkPin(); return; }
-  else if (pin.length < 4) { pin += k; }
+  else if (pin.length < 4) pin += k;
   updateDots();
   if (pin.length === 4) setTimeout(checkPin, 150);
 }
-function updateDots() {
-  for (let i = 0; i < 4; i++) document.getElementById('d' + i).classList.toggle('filled', i < pin.length);
-}
+function updateDots() { for (let i = 0; i < 4; i++) $('d' + i).classList.toggle('filled', i < pin.length); }
 function checkPin() {
-  if (pin === CORRECT_PIN) {
-    document.getElementById('pin-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display = 'block';
-    initApp();
-  } else {
-    document.getElementById('pin-error').textContent = 'PIN salah, coba lagi';
-    pin = ''; updateDots();
-  }
+  if (pin === CORRECT_PIN) { $('pin-screen').style.display = 'none'; $('app-screen').style.display = 'block'; initApp(); }
+  else { $('pin-error').textContent = 'PIN salah, coba lagi'; pin = ''; updateDots(); }
 }
 function logout() {
   clearInterval(shiftTimer); shiftTimer = null;
-  pin = ''; updateDots();
-  document.getElementById('pin-error').textContent = '';
-  document.getElementById('pin-screen').style.display = 'block';
-  document.getElementById('app-screen').style.display = 'none';
+  pin = ''; updateDots(); $('pin-error').textContent = '';
+  $('pin-screen').style.display = 'block'; $('app-screen').style.display = 'none';
 }
 
 // ---------- Tabs ----------
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
+  $('tab-' + tab).classList.add('active');
   if (tab === 'laporan') loadReport();
   if (tab === 'kelola') { renderKelolaMenu(); renderPromoMenuPickers(); renderPromoManage(); }
 }
@@ -470,58 +393,36 @@ async function initApp() {
   await loadPromoData();
   renderCategoryFilter();
   renderMenu();
-  const today = new Date().toISOString().slice(0, 10);
-  document.getElementById('report-date').value = today;
+  $('report-date').value = wibDate();
 }
 
-// ---------- Promo: load & helper status ----------
+// ---------- Promo ----------
 async function loadPromoData() {
-  try {
-    const res = await fetch('/api/promos');
-    const data = await res.json();
-    allPromos = data.promos || [];
-  } catch (e) {
-    allPromos = [];
-  }
+  try { const res = await fetch('/api/promos'); allPromos = (await res.json()).promos || []; }
+  catch (e) { allPromos = []; }
 }
 function promoStatus(p) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = wibDate();
   if (today < p.valid_from) return 'belum';
-  if (today > p.valid_until) return 'selesai';
-  if (!p.active) return 'selesai';
+  if (today > p.valid_until || !p.active) return 'selesai';
   if (p.time_from && p.time_until) {
-    const now = new Date().toTimeString().slice(0, 5);
-    const from = p.time_from.slice(0, 5);
-    const until = p.time_until.slice(0, 5);
-    if (now < from) return 'belum';   // belum masuk jam happy hour hari ini
-    if (now > until) return 'tutup';  // sudah lewat jam happy hour hari ini
+    const now = wibHM();
+    if (now < p.time_from.slice(0, 5)) return 'belum';
+    if (now > p.time_until.slice(0, 5)) return 'tutup';
   }
   return 'aktif';
 }
-function isPromoTimeActive(p) {
-  if (!p.time_from || !p.time_until) return true;
-  const now = new Date().toTimeString().slice(0, 5);
-  return now >= p.time_from.slice(0, 5) && now <= p.time_until.slice(0, 5);
-}
-function activePromos() {
-  return allPromos.filter(p => promoStatus(p) === 'aktif');
-}
+const activePromos = () => allPromos.filter(p => promoStatus(p) === 'aktif');
 
-// ---------- Kasir: filter kategori ----------
+// ---------- Kasir: filter kategori & menu ----------
 function renderCategoryFilter() {
-  const bar = document.getElementById('cat-filter-bar');
-  const chips = ['all', ...MENU_CATEGORIES];
-  bar.innerHTML = chips.map(cat => {
-    const label = cat === 'all' ? 'Semua' : cat;
-    const active = selectedCategory === cat ? 'active' : '';
-    return `<button class="cat-chip ${active}" onclick="selectCategory('${cat}')">${label}</button>`;
-  }).join('');
+  const hasBundle = activePromos().some(p => p.type === 'bundle' || p.type === 'bundle_qty');
+  const chips = ['all', ...MENU_CATEGORIES, ...(hasBundle ? ['Promo Bundle'] : [])];
+  $('cat-filter-bar').innerHTML = chips.map(cat =>
+    `<button class="cat-chip ${selectedCategory === cat ? 'active' : ''}" onclick="selectCategory('${cat}')">${cat === 'all' ? 'Semua' : cat}</button>`
+  ).join('');
 }
-function selectCategory(cat) {
-  selectedCategory = cat;
-  renderCategoryFilter();
-  renderMenu();
-}
+function selectCategory(cat) { selectedCategory = cat; renderCategoryFilter(); renderMenu(); }
 
 async function loadMenuData() {
   try {
@@ -529,54 +430,36 @@ async function loadMenuData() {
     const data = await res.json();
     allMenu = (data.menu || []).filter(m => m.active !== false);
     allRecipes = data.recipes || [];
-  } catch (e) {
-    document.getElementById('menu-items-container').innerHTML = '<div class="empty">Gagal memuat menu.</div>';
-  }
+  } catch (e) { $('menu-items-container').innerHTML = '<div class="empty">Gagal memuat menu.</div>'; }
 }
-
-// ---------- Kasir: render menu grid ----------
 function renderMenu() {
-  const q = document.getElementById('menu-search-input').value.toLowerCase();
-  const filtered = allMenu.filter(m => {
-    const matchName = m.name.toLowerCase().includes(q);
-    const matchCategory = selectedCategory === 'all' || m.category === selectedCategory;
-    return matchName && matchCategory;
-  });
+  const q = $('menu-search-input').value.toLowerCase();
+  const filtered = allMenu.filter(m => m.name.toLowerCase().includes(q) && (selectedCategory === 'all' || m.category === selectedCategory));
   const grouped = {};
-  filtered.forEach(m => {
-    const cat = m.category || 'lainnya';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(m);
-  });
-  // bundle promo aktif ikut muncul sebagai kartu menu, kategori terpisah "Promo Bundle"
+  filtered.forEach(m => { const cat = m.category || 'Lainnya'; (grouped[cat] ||= []).push(m); });
   const bundles = activePromos().filter(p => p.type === 'bundle' || p.type === 'bundle_qty')
     .filter(p => p.name.toLowerCase().includes(q) && (selectedCategory === 'all' || selectedCategory === 'Promo Bundle'));
   if (bundles.length) grouped['Promo Bundle'] = bundles;
 
-  const container = document.getElementById('menu-items-container');
-  if (!filtered.length && !bundles.length) { container.innerHTML = '<div class="empty">Menu tidak ditemukan</div>'; return; }
-  container.innerHTML = Object.keys(grouped).map(cat => `
-    <div class="category-label">${cat}</div>
+  const box = $('menu-items-container');
+  if (!filtered.length && !bundles.length) { box.innerHTML = '<div class="empty">Menu tidak ditemukan</div>'; return; }
+  box.innerHTML = Object.keys(grouped).map(cat => `
+    <div class="category-label">${esc(cat)}</div>
     <div class="menu-items">
-      ${grouped[cat].map(m => (m.type === 'bundle' || m.type === 'bundle_qty')
-        ? `<div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.bundle_price})">
-             <div class="name">🎁 ${m.name}${m.type === 'bundle_qty' ? ` (${m.bundle_qty}x)` : ''}</div>
-             <div class="price">Rp ${m.bundle_price.toLocaleString('id-ID')}</div>
-           </div>`
-        : `<div class="menu-item" onclick="addToCart('${m.name.replace(/'/g, "\\'")}', ${m.price})">
-             <div class="name">${m.name}</div>
-             <div class="price">Rp ${m.price.toLocaleString('id-ID')}</div>
-           </div>`
-      ).join('')}
-    </div>
-  `).join('');
+      ${grouped[cat].map(m => {
+        const isB = m.type === 'bundle' || m.type === 'bundle_qty';
+        const price = isB ? m.bundle_price : m.price;
+        const label = (isB ? '🎁 ' : '') + esc(m.name) + (m.type === 'bundle_qty' ? ` (${m.bundle_qty}x)` : '');
+        return `<div class="menu-item" onclick="addToCart('${jsq(m.name)}', ${price})">
+          <div class="name">${label}</div><div class="price">${rp(price)}</div></div>`;
+      }).join('')}
+    </div>`).join('');
 }
 
 // ---------- Cart ----------
 function addToCart(name, price) {
-  const existing = cart.find(c => c.menu_name === name);
-  if (existing) existing.qty++;
-  else cart.push({ menu_name: name, price, qty: 1 });
+  const ex = cart.find(c => c.menu_name === name);
+  if (ex) ex.qty++; else cart.push({ menu_name: name, price, qty: 1 });
   renderCart();
 }
 function changeQty(name, delta) {
@@ -585,254 +468,176 @@ function changeQty(name, delta) {
   item.qty += delta;
   if (item.qty <= 0) {
     cart = cart.filter(c => c.menu_name !== name);
-    if (redeemItemName === name) redeemItemName = null; // item yang digratiskan dihapus dari keranjang
+    if (redeemItemName === name) redeemItemName = null;
   }
   renderCart();
+  renderCustomerBox();
 }
 function clearCart() {
-  cart = [];
-  redeemMode = false;
-  redeemItemName = null;
-  selectedPromoId = null;
-  selectedPayment = null;
-  document.getElementById('pay-cash').classList.remove('active');
-  document.getElementById('pay-qris').classList.remove('active');
-  document.getElementById('payment-required-hint').classList.remove('show');
+  cart = []; redeemMode = false; redeemItemName = null; selectedPromoId = null; selectedPayment = null;
+  $('pay-cash').classList.remove('active'); $('pay-qris').classList.remove('active');
+  $('payment-required-hint').classList.remove('show');
   renderCart();
+  renderCustomerBox();
 }
 function selectPayment(type) {
   selectedPayment = type;
-  document.getElementById('pay-cash').classList.toggle('active', type === 'cash');
-  document.getElementById('pay-qris').classList.toggle('active', type === 'qris');
-  document.getElementById('payment-required-hint').classList.remove('show');
+  $('pay-cash').classList.toggle('active', type === 'cash');
+  $('pay-qris').classList.toggle('active', type === 'qris');
+  $('payment-required-hint').classList.remove('show');
   renderCart();
 }
-// Barista pencet "Redeem Gratis" di kotak customer -> masuk mode pilih item
 function startRedeemPick() {
   if (!customerPunch || customerPunch.punches < PUNCHES_FOR_FREE) return;
   if (!cart.length) { showToast('Keranjang masih kosong'); return; }
-  selectedPromoId = null; // redeem gratis & promo diskon tidak boleh numpuk
-  redeemMode = true;
-  redeemItemName = null;
-  renderCart();
-  renderCustomerBox();
+  selectedPromoId = null; redeemMode = true; redeemItemName = null;
+  renderCart(); renderCustomerBox();
 }
-function cancelRedeem() {
-  redeemMode = false;
-  redeemItemName = null;
-  renderCart();
-  renderCustomerBox();
-}
-function pickRedeemItem(name) {
-  redeemItemName = name;
-  redeemMode = false;
-  renderCart();
-  renderCustomerBox();
-}
+function cancelRedeem() { redeemMode = false; redeemItemName = null; renderCart(); renderCustomerBox(); }
+function pickRedeemItem(name) { redeemItemName = name; redeemMode = false; renderCart(); renderCustomerBox(); }
 
+function discountableSubtotal(p) {
+  const bundleNames = new Set(allPromos.filter(x => x.type === 'bundle' || x.type === 'bundle_qty').map(x => x.name));
+  const allowed = p.applicable_menus ? p.applicable_menus.split(',').map(x => x.trim()) : null;
+  // sama dengan server: bundle tidak kena diskon
+  return cart.reduce((s, c) => (bundleNames.has(c.menu_name) || (allowed && !allowed.includes(c.menu_name))) ? s : s + c.price * c.qty, 0);
+}
 function renderCart() {
-  const el = document.getElementById('cart-lines');
+  const el = $('cart-lines');
   if (!cart.length) {
     el.innerHTML = '<div class="empty">Belum ada item</div>';
   } else {
     const banner = redeemMode ? '<div class="redeem-banner">🎁 Pilih 1 menu di bawah untuk digratiskan</div>' : '';
     el.innerHTML = banner + cart.map(c => {
       const isRedeemed = redeemItemName === c.menu_name;
-      const isPickable = redeemMode;
-      const cls = isRedeemed ? 'redeemed' : (isPickable ? 'pickable' : '');
-      const onclick = isPickable ? `onclick="pickRedeemItem('${c.menu_name.replace(/'/g, "\\'")}')"` : '';
-      let priceHtml = `Rp ${c.price.toLocaleString('id-ID')}`;
+      const cls = isRedeemed ? 'redeemed' : (redeemMode ? 'pickable' : '');
+      const onclick = redeemMode ? `onclick="pickRedeemItem('${jsq(c.menu_name)}')"` : '';
+      let priceHtml = rp(c.price);
       if (isRedeemed) {
-        priceHtml = `<span class="price-strike">Rp ${c.price.toLocaleString('id-ID')}</span><span class="price-free">Rp 0</span> <span style="color:#888">x${c.qty > 1 ? ` (1 gratis, ${c.qty - 1} bayar)` : ''}</span>`;
+        priceHtml = `<span class="price-strike">${rp(c.price)}</span><span class="price-free">Rp 0</span>` +
+          (c.qty > 1 ? ` <span style="color:#888">(1 gratis, ${c.qty - 1} bayar)</span>` : '');
       }
       return `
       <div class="cart-line ${cls}" ${onclick}>
-        <div class="cart-line-name">${c.menu_name}${isRedeemed ? '<span class="free-tag">GRATIS</span>' : ''}<br><span style="color:#888;font-size:11px">${priceHtml}</span></div>
+        <div class="cart-line-name">${esc(c.menu_name)}${isRedeemed ? '<span class="free-tag">GRATIS</span>' : ''}<br><span style="color:#888;font-size:11px">${priceHtml}</span></div>
         <div class="qty-ctrl">
-          <button onclick="event.stopPropagation(); changeQty('${c.menu_name.replace(/'/g, "\\'")}', -1)">−</button>
+          <button onclick="event.stopPropagation(); changeQty('${jsq(c.menu_name)}', -1)">−</button>
           <span>${c.qty}</span>
-          <button onclick="event.stopPropagation(); changeQty('${c.menu_name.replace(/'/g, "\\'")}', 1)">+</button>
+          <button onclick="event.stopPropagation(); changeQty('${jsq(c.menu_name)}', 1)">+</button>
         </div>
-      </div>
-    `;
+      </div>`;
     }).join('');
   }
   const rawTotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  let total = rawTotal;
+  let discount = 0;
   if (redeemItemName) {
-    total = rawTotal - (cart.find(c => c.menu_name === redeemItemName)?.price || 0);
+    discount = cart.find(c => c.menu_name === redeemItemName)?.price || 0;
   } else if (selectedPromoId) {
     const p = allPromos.find(x => x.id === selectedPromoId);
     if (p) {
       const base = discountableSubtotal(p);
-      if (p.type === 'discount_percent') total = rawTotal - (base * p.discount_percent / 100);
-      if (p.type === 'discount_fixed') total = rawTotal - Math.min(p.discount_fixed, base);
+      discount = p.type === 'discount_percent' ? Math.round(base * p.discount_percent / 100) : Math.min(p.discount_fixed, base);
     }
   }
-  document.getElementById('cart-total-val').textContent = 'Rp ' + Math.max(0, total).toLocaleString('id-ID');
-  document.getElementById('btn-checkout').disabled = cart.length === 0 || !selectedPayment;
+  $('cart-disc').innerHTML = discount ? `<div class="cart-disc"><span>${redeemItemName ? 'Redeem gratis' : 'Diskon'}</span><span>− ${rp(discount)}</span></div>` : '';
+  $('cart-total-val').textContent = rp(Math.max(0, rawTotal - discount));
+  $('btn-checkout').disabled = cart.length === 0 || !selectedPayment;
   renderPromoBox();
 }
 
-// Hitung subtotal item yang benar-benar kena diskon promo ini
-// (kalau promo punya applicable_menus, cuma item di daftar itu yang dihitung; kalau
-// applicable_menus kosong/null, promo berlaku untuk seluruh isi keranjang).
-function discountableSubtotal(p) {
-  if (!p.applicable_menus) return cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const allowed = p.applicable_menus.split(',').map(x => x.trim());
-  return cart.reduce((s, c) => s + (allowed.includes(c.menu_name) ? c.price * c.qty : 0), 0);
-}
-
-// ---------- Promo: pilih/batal di keranjang ----------
 function renderPromoBox() {
-  const box = document.getElementById('promo-box');
-  if (!box) return;
+  const box = $('promo-box');
   if (!cart.length) { box.innerHTML = ''; return; }
   if (redeemItemName || redeemMode) {
     box.innerHTML = '<div class="promo-box" style="color:#888">Promo tidak bisa dipakai bareng redeem gratis loyalty.</div>';
     return;
   }
+  if (selectedPromoId) {
+    const p = allPromos.find(x => x.id === selectedPromoId);
+    box.innerHTML = `<div class="promo-box"><div class="promo-applied"><span>🏷 ${esc(p ? p.name : 'Promo')}${p && p.applicable_menus ? ' (khusus: ' + esc(p.applicable_menus) + ')' : ''}</span><button onclick="cancelPromo()">✕</button></div></div>`;
+    return;
+  }
   const list = activePromos()
     .filter(p => p.type === 'discount_percent' || p.type === 'discount_fixed')
     .filter(p => !p.applicable_menus || cart.some(c => p.applicable_menus.split(',').map(x => x.trim()).includes(c.menu_name)));
-  if (selectedPromoId) {
-    const p = allPromos.find(x => x.id === selectedPromoId);
-    box.innerHTML = `<div class="promo-box">
-      <div class="promo-applied"><span>🏷 ${p ? p.name : 'Promo'}${p && p.applicable_menus ? ' (khusus: ' + p.applicable_menus + ')' : ''}</span><button onclick="cancelPromo()">✕</button></div>
-    </div>`;
-    return;
-  }
-  if (!list.length) { box.innerHTML = ''; return; }
-  box.innerHTML = `<div class="promo-box"><strong style="font-size:12px">Promo Aktif</strong>` +
-    list.map(p => `<div class="promo-pick-item" onclick="pickPromo(${p.id})">🏷 ${p.name}</div>`).join('') +
-    `</div>`;
+  box.innerHTML = list.length
+    ? `<div class="promo-box"><strong style="font-size:12px">Promo Aktif</strong>` +
+      list.map(p => `<div class="promo-pick-item" onclick="pickPromo(${p.id})">🏷 ${esc(p.name)}</div>`).join('') + `</div>`
+    : '';
 }
-function pickPromo(id) {
-  selectedPromoId = id;
-  renderCart();
-}
-function cancelPromo() {
-  selectedPromoId = null;
-  renderCart();
-}
+function pickPromo(id) { selectedPromoId = id; renderCart(); }
+function cancelPromo() { selectedPromoId = null; renderCart(); }
 
-// ---------- Customer search (reuse pola loyalty-desk) ----------
+// ---------- Customer ----------
 async function searchCustomer() {
-  const q = document.getElementById('customer-search').value.trim();
-  const resultsEl = document.getElementById('customer-results');
-  if (q.length < 2) { resultsEl.innerHTML = ''; return; }
-
-  if (allMembers.length === 0) {
+  const q = $('customer-search').value.trim();
+  const out = $('customer-results');
+  if (q.length < 2) { out.innerHTML = ''; return; }
+  if (!allMembers.length) {
     try {
       const res = await fetch('/api/loyalty-members');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Gagal memuat member');
       allMembers = data.contacts || [];
-    } catch (e) {
-      resultsEl.innerHTML = '<div class="empty" style="padding:6px;color:#c00">Gagal memuat member: ' + e.message + '</div>';
-      return;
-    }
+    } catch (e) { out.innerHTML = '<div class="empty" style="padding:6px;color:#c00">Gagal memuat member: ' + esc(e.message) + '</div>'; return; }
   }
-
   const ql = q.toLowerCase();
-  const filtered = allMembers.filter(c => {
+  const found = allMembers.filter(c => {
     const name = `${c.attributes?.FIRSTNAME || ''} ${c.attributes?.LASTNAME || ''}`.toLowerCase();
     return name.includes(ql) || c.email.toLowerCase().includes(ql);
   }).slice(0, 8);
-
-  if (!filtered.length) { resultsEl.innerHTML = '<div class="empty" style="padding:6px">Tidak ditemukan</div>'; return; }
-  resultsEl.innerHTML = filtered.map(c => {
-    const fn = c.attributes?.FIRSTNAME || '';
-    const ln = c.attributes?.LASTNAME || '';
-    const name = [fn, ln].filter(Boolean).join(' ') || c.email;
-    return `<div class="customer-result" onclick="selectCustomer('${c.email.replace(/'/g, "\\'")}', '${name.replace(/'/g, "\\'")}')">${name} — ${c.email}</div>`;
+  if (!found.length) { out.innerHTML = '<div class="empty" style="padding:6px">Tidak ditemukan</div>'; return; }
+  out.innerHTML = found.map(c => {
+    const name = [c.attributes?.FIRSTNAME, c.attributes?.LASTNAME].filter(Boolean).join(' ') || c.email;
+    return `<div class="customer-result" onclick="selectCustomer('${jsq(c.email)}', '${jsq(name)}')">${esc(name)} — ${esc(c.email)}</div>`;
   }).join('');
 }
 async function selectCustomer(email, name) {
-  selectedCustomer = { email, name };
-  customerPunch = null;
-  redeemMode = false;
-  redeemItemName = null;
-  document.getElementById('customer-results').innerHTML = '';
-  document.getElementById('customer-search').value = '';
-  renderCustomerBox(true); // tampilkan state loading dulu
-
-  try {
-    const res = await fetch(`/api/punch?email=${encodeURIComponent(email)}`);
-    customerPunch = await res.json();
-  } catch (e) {
-    customerPunch = { punches: 0, total_punches: 0, free_redeemed: 0 };
-  }
-  renderCustomerBox();
-  renderCart();
+  selectedCustomer = { email, name }; customerPunch = null; redeemMode = false; redeemItemName = null;
+  $('customer-results').innerHTML = ''; $('customer-search').value = '';
+  renderCustomerBox(true);
+  try { customerPunch = await (await fetch(`/api/punch?email=${encodeURIComponent(email)}`)).json(); }
+  catch (e) { customerPunch = { punches: 0, total_punches: 0, free_redeemed: 0 }; }
+  renderCustomerBox(); renderCart();
 }
-
 function clearCustomer() {
-  selectedCustomer = null;
-  customerPunch = null;
-  redeemMode = false;
-  redeemItemName = null;
-  document.getElementById('customer-selected-box').innerHTML = '';
+  selectedCustomer = null; customerPunch = null; redeemMode = false; redeemItemName = null;
+  $('customer-selected-box').innerHTML = '';
   renderCart();
 }
-
 function renderCustomerBox(loading) {
-  const box = document.getElementById('customer-selected-box');
+  const box = $('customer-selected-box');
   if (!selectedCustomer) { box.innerHTML = ''; return; }
-
-  const name = selectedCustomer.name;
   let punchSection = '<div class="punch-status">Memuat status punch...</div>';
-
   if (!loading && customerPunch) {
     const p = Math.min(customerPunch.punches, PUNCHES_FOR_FREE);
     const eligible = customerPunch.punches >= PUNCHES_FOR_FREE;
-    const dots = Array.from({ length: PUNCHES_FOR_FREE }, (_, i) =>
-      `<div class="punch-dot ${i < p ? 'on' : ''}"></div>`
-    ).join('');
-
+    const dots = Array.from({ length: PUNCHES_FOR_FREE }, (_, i) => `<div class="punch-dot ${i < p ? 'on' : ''}"></div>`).join('');
     if (redeemItemName) {
-      punchSection = `
-        <div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — redeem gratis sedang dipakai untuk "${redeemItemName}"</div>
-        <div class="punch-track">${dots}</div>
-        <button class="btn-cancel-redeem" onclick="cancelRedeem()">Batalkan redeem</button>
-      `;
+      punchSection = `<div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — redeem gratis dipakai untuk "${esc(redeemItemName)}"</div>
+        <div class="punch-track">${dots}</div><button class="btn-cancel-redeem" onclick="cancelRedeem()">Batalkan redeem</button>`;
     } else if (eligible) {
-      punchSection = `
-        <div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — sudah bisa redeem 1 minuman gratis 🎉</div>
-        <div class="punch-track">${dots}</div>
-        <button class="btn-redeem" onclick="startRedeemPick()">🎁 Redeem Gratis</button>
-      `;
+      punchSection = `<div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — sudah bisa redeem 1 minuman gratis 🎉</div>
+        <div class="punch-track">${dots}</div><button class="btn-redeem" onclick="startRedeemPick()">🎁 Redeem Gratis</button>`;
     } else {
-      punchSection = `
-        <div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — butuh ${PUNCHES_FOR_FREE - customerPunch.punches} lagi untuk gratis</div>
-        <div class="punch-track">${dots}</div>
-      `;
+      punchSection = `<div class="punch-status">Punch: ${customerPunch.punches}/${PUNCHES_FOR_FREE} — butuh ${PUNCHES_FOR_FREE - customerPunch.punches} lagi untuk gratis</div>
+        <div class="punch-track">${dots}</div>`;
     }
   }
-
   box.innerHTML = `
-    <div class="customer-selected">
-      <span>${name}</span>
-      <button onclick="clearCustomer()">✕</button>
-    </div>
+    <div class="customer-selected"><span>${esc(selectedCustomer.name)}</span><button onclick="clearCustomer()">✕</button></div>
     ${punchSection}
-    ${!redeemItemName ? '<div class="punch-hint">Transaksi ini akan menambah 1 punch (kecuali sedang redeem gratis)</div>' : ''}
-  `;
+    ${!redeemItemName ? '<div class="punch-hint">Transaksi ini menambah punch sesuai jumlah cup (kecuali sedang redeem gratis)</div>' : ''}`;
 }
 
 // ---------- Checkout ----------
 async function checkout() {
   if (!cart.length) return;
-  if (!selectedPayment) {
-    document.getElementById('payment-required-hint').classList.add('show');
-    showToast('Pilih metode pembayaran (Cash/QRIS) dulu');
-    return;
-  }
-  const btn = document.getElementById('btn-checkout');
-  btn.disabled = true;
-  btn.textContent = 'Memproses...';
+  if (!selectedPayment) { $('payment-required-hint').classList.add('show'); showToast('Pilih metode pembayaran (Cash/QRIS) dulu'); return; }
+  const btn = $('btn-checkout');
+  btn.disabled = true; btn.textContent = 'Memproses...';
   try {
-    const appliedPromo = selectedPromoId ? allPromos.find(x => x.id === selectedPromoId) : null;
+    const promo = selectedPromoId ? allPromos.find(x => x.id === selectedPromoId) : null;
     const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -841,393 +646,268 @@ async function checkout() {
         customer_email: selectedCustomer ? selectedCustomer.email : undefined,
         redeem_free: !!redeemItemName,
         redeem_item: redeemItemName || undefined,
-        promo_id: appliedPromo ? appliedPromo.id : undefined,
-        promo_name: appliedPromo ? appliedPromo.name : undefined,
+        promo_id: promo ? promo.id : undefined,
+        promo_name: promo ? promo.name : undefined,
         payment_type: selectedPayment,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Checkout gagal');
-    const msg = data.redeemed_item
-      ? `Transaksi berhasil! Rp ${data.total.toLocaleString('id-ID')} (1x ${data.redeemed_item} gratis 🎁)`
-      : `Transaksi berhasil! Rp ${data.total.toLocaleString('id-ID')}`;
-    showToast(msg);
-    if (data.warnings && data.warnings.length) {
-      showToast('⚠️ ' + data.warnings.join('; '));
-    }
-    clearCart();
-    clearCustomer();
-  } catch (e) {
-    showToast('Gagal: ' + e.message);
-  } finally {
-    btn.textContent = 'Checkout';
-    btn.disabled = cart.length === 0 || !selectedPayment;
-  }
+    let msg = `Transaksi berhasil! ${rp(data.total)}` + (data.redeemed_item ? ` (1x ${data.redeemed_item} gratis 🎁)` : '');
+    if (data.warnings && data.warnings.length) msg += ' ⚠️ ' + data.warnings.join('; ');
+    showToast(msg, data.warnings && data.warnings.length ? 6000 : 3000);
+    clearCart(); clearCustomer();
+  } catch (e) { showToast('Gagal: ' + e.message); }
+  finally { btn.textContent = 'Checkout'; btn.disabled = cart.length === 0 || !selectedPayment; }
 }
 
 // ---------- Laporan ----------
+const SHIFT_LABEL = { 1: 'Shift 1', 2: 'Shift 2' };
 async function loadReport() {
-  const range = document.getElementById('report-range').value;
-  const date = document.getElementById('report-date').value;
-  document.getElementById('report-tbody').innerHTML = '<tr><td colspan="8" class="empty">Memuat...</td></tr>';
-  document.getElementById('report-summary-tbody').innerHTML = '<tr><td colspan="3" class="empty">Memuat...</td></tr>';
+  const range = $('report-range').value, date = $('report-date').value;
+  $('report-tbody').innerHTML = '<tr><td colspan="10" class="empty">Memuat...</td></tr>';
+  $('report-summary-tbody').innerHTML = '<tr><td colspan="3" class="empty">Memuat...</td></tr>';
+  $('report-shift-tbody').innerHTML = '<tr><td colspan="5" class="empty">Memuat...</td></tr>';
   try {
     const res = await fetch(`/api/sales-report?range=${range}&date=${date}`);
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal memuat laporan');
     currentReport = data;
-    document.getElementById('report-range-label').textContent = `${data.start} s/d ${data.end}`;
-    document.getElementById('report-total').textContent = 'Rp ' + data.grand_total.toLocaleString('id-ID');
+    $('report-range-label').textContent = `${data.start} s/d ${data.end}`;
+    $('report-total').textContent = rp(data.grand_total);
+    $('report-warn').textContent = (data.warnings || []).join(' · ');
 
-    const tbody = document.getElementById('report-tbody');
-    if (!data.rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">Tidak ada transaksi</td></tr>';
-    } else {
-      tbody.innerHTML = data.rows.map(r => `
-        <tr>
-          <td>${r.date}</td>
-          <td>${r.time || ''}</td>
-          <td>${r.item}</td>
-          <td>${r.qty} ${r.unit || ''}</td>
-          <td>Rp ${r.price.toLocaleString('id-ID')}</td>
-          <td>Rp ${r.subtotal.toLocaleString('id-ID')}</td>
-          <td>${r.payment_type ? r.payment_type.toUpperCase() : '-'}</td>
-          <td>${r.tipe}</td>
-        </tr>
-      `).join('');
-    }
+    $('report-shift-tbody').innerHTML = (data.shifts || []).map(s =>
+      `<tr><td>${s.date}</td><td>${SHIFT_LABEL[s.shift]}</td><td>${s.barista ? esc(s.barista) : '<span style="color:#aaa">tidak ada data clock in</span>'}</td><td>${s.cups}</td><td>${rp(s.omzet)}</td></tr>`
+    ).join('') || '<tr><td colspan="5" class="empty">Tidak ada transaksi</td></tr>';
 
-    const summaryTbody = document.getElementById('report-summary-tbody');
-    if (!data.summary || !data.summary.length) {
-      summaryTbody.innerHTML = '<tr><td colspan="3" class="empty">Tidak ada transaksi</td></tr>';
-    } else {
-      summaryTbody.innerHTML = data.summary.map(s => `
-        <tr>
-          <td>${s.item}</td>
-          <td>${s.qty}</td>
-          <td>Rp ${s.total.toLocaleString('id-ID')}</td>
-        </tr>
-      `).join('');
-    }
+    $('report-tbody').innerHTML = data.rows.map(r => `
+      <tr>
+        <td>${r.date}</td><td>${r.time || ''}</td><td>${r.shift}</td><td>${esc(r.barista || '-')}</td>
+        <td>${esc(r.item)}</td><td>${r.qty} ${esc(r.unit || '')}</td>
+        <td class="${r.price < 0 ? 'neg' : ''}">${rp(r.price)}</td><td class="${r.subtotal < 0 ? 'neg' : ''}">${rp(r.subtotal)}</td>
+        <td>${r.payment_type ? r.payment_type.toUpperCase() : '-'}</td><td>${r.tipe}</td>
+      </tr>`).join('') || '<tr><td colspan="10" class="empty">Tidak ada transaksi</td></tr>';
+
+    $('report-summary-tbody').innerHTML = (data.summary || []).map(s =>
+      `<tr><td>${esc(s.item)}</td><td>${s.qty}</td><td>${rp(s.total)}</td></tr>`
+    ).join('') || '<tr><td colspan="3" class="empty">Tidak ada transaksi</td></tr>';
   } catch (e) {
-    document.getElementById('report-tbody').innerHTML = '<tr><td colspan="8" class="empty">Gagal memuat laporan</td></tr>';
-    document.getElementById('report-summary-tbody').innerHTML = '<tr><td colspan="3" class="empty">Gagal memuat laporan</td></tr>';
+    const m = esc(e.message || 'Gagal memuat laporan');
+    $('report-tbody').innerHTML = `<tr><td colspan="10" class="empty">${m}</td></tr>`;
+    $('report-summary-tbody').innerHTML = `<tr><td colspan="3" class="empty">${m}</td></tr>`;
+    $('report-shift-tbody').innerHTML = `<tr><td colspan="5" class="empty">${m}</td></tr>`;
   }
 }
 function downloadExcel() {
-  if (!currentReport || !currentReport.rows.length) { showToast('Tidak ada data untuk diunduh'); return; }
-
-  const logHeader = ['Tanggal', 'Waktu', 'Menu Item', 'Qty', 'Harga', 'Subtotal', 'Tipe Pembayaran', 'Tipe'];
-  const logRows = currentReport.rows.map(r => [
-    r.date, r.time || '', r.item, r.qty, r.price, r.subtotal,
-    r.payment_type ? r.payment_type.toUpperCase() : '-', r.tipe,
-  ]);
-  const sheet1 = XLSX.utils.aoa_to_sheet([logHeader, ...logRows, [], ['', '', '', '', '', 'Total', currentReport.grand_total, '']]);
-
-  const summaryHeader = ['Nama Item', 'Qty', 'Total (Rp)'];
-  const summaryRows = (currentReport.summary || []).map(s => [s.item, s.qty, s.total]);
-  const sheet2 = XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows]);
-
+  const d = currentReport;
+  if (!d || !d.rows.length) { showToast('Tidak ada data untuk diunduh'); return; }
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, sheet1, 'Log Transaksi');
-  XLSX.utils.book_append_sheet(wb, sheet2, 'Ringkasan Penjualan');
-  XLSX.writeFile(wb, `nirmala-sales-${currentReport.range}-${currentReport.start}.xlsx`);
+  const add = (name, aoa, cols) => {
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = cols.map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  };
+  add('Rekap Shift & Barista',
+    [['Tanggal', 'Shift', 'Jam Shift', 'Barista (clock in)', 'Cup Terjual', 'Omzet (Rp)'],
+     ...(d.shifts || []).map(s => [s.date, 'Shift ' + s.shift, s.shift === 1 ? '07:30-15:00' : '15:00-22:45', s.barista || '(tidak ada data clock in)', s.cups, s.omzet]),
+     [], ['', '', '', 'Total', (d.shifts || []).reduce((a, s) => a + s.cups, 0), d.grand_total]],
+    [12, 9, 13, 26, 12, 14]);
+  add('Log Transaksi',
+    [['Tanggal', 'Waktu', 'Shift', 'Barista', 'Menu Item', 'Qty', 'Harga', 'Subtotal', 'Tipe Pembayaran', 'Tipe'],
+     ...d.rows.map(r => [r.date, r.time || '', 'Shift ' + r.shift, r.barista || '', r.item, r.qty, r.price, r.subtotal, r.payment_type ? r.payment_type.toUpperCase() : '-', r.tipe]),
+     [], ['', '', '', '', '', '', 'Total', d.grand_total, '', '']],
+    [12, 10, 9, 20, 26, 8, 12, 12, 16, 14]);
+  add('Ringkasan Penjualan',
+    [['Nama Item', 'Qty', 'Total (Rp)'], ...(d.summary || []).map(s => [s.item, s.qty, s.total])],
+    [28, 8, 14]);
+  XLSX.writeFile(wb, `nirmala-sales-${d.range}-${d.start}.xlsx`);
 }
 
 // ---------- Kelola Menu ----------
 async function loadInventoryList() {
   if (allInventory.length) return;
   try {
-    // pakai endpoint inventory kalau ada; fallback: tidak wajib untuk fitur ini
     const res = await fetch('/api/inventory-list');
-    if (res.ok) {
-      const data = await res.json();
-      allInventory = data.items || data || [];
-    }
-  } catch (e) { /* opsional, lihat catatan di bawah */ }
+    if (res.ok) { const data = await res.json(); allInventory = data.items || data || []; }
+  } catch (e) { /* opsional */ }
 }
-
+async function postMenu(payload) {
+  const res = await fetch('/api/menu', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal');
+}
+async function refreshMenuViews() {
+  await loadMenuData();
+  renderKelolaMenu(); renderPromoMenuPickers(); renderMenu();
+}
 async function addMenu() {
-  const name = document.getElementById('new-menu-name').value.trim();
-  const category = document.getElementById('new-menu-category').value.trim();
-  const price = parseFloat(document.getElementById('new-menu-price').value);
+  const name = $('new-menu-name').value.trim();
+  const category = $('new-menu-category').value || 'Lainnya';
+  const price = parseFloat($('new-menu-price').value);
   if (!name || !price) { showToast('Nama & harga wajib diisi'); return; }
   try {
-    const res = await fetch('/api/menu', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'upsert_menu', name, category, price }),
-    });
-    if (!res.ok) throw new Error((await res.json()).error);
-    document.getElementById('new-menu-name').value = '';
-    document.getElementById('new-menu-category').value = '';
-    document.getElementById('new-menu-price').value = '';
+    await postMenu({ action: 'upsert_menu', name, category, price });
+    $('new-menu-name').value = ''; $('new-menu-price').value = '';
+    $('new-menu-category').selectedIndex = 0; // select tidak punya opsi kosong: jangan di-set ''
     showToast('Menu tersimpan');
-    await loadMenuData();
-    renderKelolaMenu();
-    renderPromoMenuPickers(); // biar checkbox pilihan menu di form promo ikut update
-    renderMenu();
+    await refreshMenuViews();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
-
 async function addRecipe() {
-  const menu_name = document.getElementById('recipe-menu-select').value;
-  const ingredient_name = document.getElementById('recipe-ingredient-select').value;
-  const qty_used = parseFloat(document.getElementById('recipe-qty').value);
-  const unit = document.getElementById('recipe-unit').value.trim();
+  const menu_name = $('recipe-menu-select').value;
+  const ingredient_name = $('recipe-ingredient-select').value;
+  const qty_used = parseFloat($('recipe-qty').value);
+  const unit = $('recipe-unit').value.trim();
   if (!menu_name || !ingredient_name || !qty_used) { showToast('Lengkapi semua field resep'); return; }
   try {
-    const res = await fetch('/api/menu', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'upsert_recipe', menu_name, ingredient_name, qty_used, unit }),
-    });
-    if (!res.ok) throw new Error((await res.json()).error);
-    document.getElementById('recipe-qty').value = '';
-    document.getElementById('recipe-unit').value = '';
+    await postMenu({ action: 'upsert_recipe', menu_name, ingredient_name, qty_used, unit });
+    $('recipe-qty').value = ''; $('recipe-unit').value = '';
     showToast('Resep ditambahkan');
-    await loadMenuData();
-    renderKelolaMenu();
+    await loadMenuData(); renderKelolaMenu();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
-
 async function deleteMenu(name) {
   if (!confirm(`Hapus menu "${name}"? Resepnya juga akan terhapus.`)) return;
-  await fetch('/api/menu', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'delete_menu', name }),
-  });
-  await loadMenuData();
-  renderKelolaMenu();
-  renderPromoMenuPickers(); // biar checkbox pilihan menu di form promo ikut update
-  renderMenu();
+  try { await postMenu({ action: 'delete_menu', name }); await refreshMenuViews(); }
+  catch (e) { showToast('Gagal: ' + e.message); }
 }
 async function deleteRecipe(id) {
-  await fetch('/api/menu', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'delete_recipe', id }),
-  });
-  await loadMenuData();
-  renderKelolaMenu();
+  try { await postMenu({ action: 'delete_recipe', id }); await loadMenuData(); renderKelolaMenu(); }
+  catch (e) { showToast('Gagal: ' + e.message); }
 }
-
-// Migrasi cepat: ubah kategori 1 menu langsung dari dropdown di list,
-// tanpa perlu retype nama & harga di form atas.
 async function quickUpdateCategory(name, category, price) {
   try {
-    const res = await fetch('/api/menu', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'upsert_menu', name, category, price }),
-    });
-    if (!res.ok) throw new Error((await res.json()).error);
+    await postMenu({ action: 'upsert_menu', name, category, price });
     showToast(`Kategori "${name}" -> ${category}`);
-    await loadMenuData();
-    renderKelolaMenu();
-    renderMenu();
-  } catch (e) {
-    showToast('Gagal update kategori: ' + e.message);
-  }
+    await loadMenuData(); renderKelolaMenu(); renderMenu();
+  } catch (e) { showToast('Gagal update kategori: ' + e.message); }
 }
-
 async function renderKelolaMenu() {
   await loadInventoryList();
-
-  // isi dropdown menu & ingredient
-  const menuSelect = document.getElementById('recipe-menu-select');
-  menuSelect.innerHTML = allMenu.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
-  const ingSelect = document.getElementById('recipe-ingredient-select');
-  if (allInventory.length) {
-    ingSelect.innerHTML = allInventory.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-  } else {
-    ingSelect.innerHTML = '<option value="">(ketik manual di bawah jika kosong)</option>';
-  }
-
-  const container = document.getElementById('menu-manage-list');
-  if (!allMenu.length) { container.innerHTML = '<div class="empty">Belum ada menu, tambahkan di atas.</div>'; return; }
-  container.innerHTML = allMenu.map(m => {
+  $('recipe-menu-select').innerHTML = allMenu.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
+  $('recipe-ingredient-select').innerHTML = allInventory.length
+    ? allInventory.map(i => `<option value="${esc(i.name)}">${esc(i.name)}</option>`).join('')
+    : '<option value="">(daftar bahan tidak termuat)</option>';
+  const box = $('menu-manage-list');
+  if (!allMenu.length) { box.innerHTML = '<div class="empty">Belum ada menu, tambahkan di atas.</div>'; return; }
+  box.innerHTML = allMenu.map(m => {
     const recipes = allRecipes.filter(r => r.menu_name === m.name);
     const needsFix = !MENU_CATEGORIES.includes(m.category);
-    const catOptions = MENU_CATEGORIES.map(c =>
-      `<option value="${c}" ${c === m.category ? 'selected' : ''}>${c}</option>`
-    ).join('');
+    const opts = MENU_CATEGORIES.map(c => `<option value="${c}" ${c === m.category ? 'selected' : ''}>${c}</option>`).join('');
     return `
       <div class="menu-manage-item ${needsFix ? 'needs-cat-fix' : ''}">
         <div class="top">
-          <strong>${m.name}${needsFix ? ' ⚠️' : ''}</strong>
-          <span>Rp ${m.price.toLocaleString('id-ID')}
-            <select class="quick-cat-select" onchange="quickUpdateCategory('${m.name.replace(/'/g, "\\'")}', this.value, ${m.price})">
-              ${needsFix ? `<option value="" selected disabled>${m.category || '(kosong)'}</option>` : ''}
-              ${catOptions}
+          <strong>${esc(m.name)}${needsFix ? ' ⚠️' : ''}</strong>
+          <span>${rp(m.price)}
+            <select class="quick-cat-select" onchange="quickUpdateCategory('${jsq(m.name)}', this.value, ${m.price})">
+              ${needsFix ? `<option value="" selected disabled>${esc(m.category || '(kosong)')}</option>` : ''}${opts}
             </select>
-            <button class="small-btn" onclick="deleteMenu('${m.name.replace(/'/g, "\\'")}')">hapus</button>
+            <button class="small-btn" onclick="deleteMenu('${jsq(m.name)}')">hapus</button>
           </span>
         </div>
         <div class="recipe-list">
-          ${recipes.length ? recipes.map(r => `${r.ingredient_name} (${r.qty_used}${r.unit}) <button class="small-btn" onclick="deleteRecipe(${r.id})">x</button>`).join(' · ') : 'Belum ada resep'}
+          ${recipes.length ? recipes.map(r => `${esc(r.ingredient_name)} (${r.qty_used}${esc(r.unit)}) <button class="small-btn" onclick="deleteRecipe(${r.id})">x</button>`).join(' · ') : 'Belum ada resep'}
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
 // ---------- Kelola Promo ----------
 function togglePromoTypeFields() {
-  const type = document.getElementById('promo-type').value;
-  ['discount_percent', 'discount_fixed', 'bundle', 'bundle_qty'].forEach(t => {
-    document.getElementById('fields-' + t).classList.toggle('show', t === type);
-  });
-  document.getElementById('fields-discount-menu-wrap').classList.toggle(
-    'show', type === 'discount_percent' || type === 'discount_fixed'
-  );
+  const type = $('promo-type').value;
+  ['discount_percent', 'discount_fixed', 'bundle', 'bundle_qty'].forEach(t => $('fields-' + t).classList.toggle('show', t === type));
+  $('fields-discount-menu-wrap').classList.toggle('show', type === 'discount_percent' || type === 'discount_fixed');
 }
-
-// Isi checkbox pilihan menu (form diskon & bundle) dan dropdown menu (bundle_qty),
-// berdasarkan allMenu yang lagi ada. Dipanggil tiap masuk tab Kelola Menu, dan tiap
-// kali daftar menu berubah (tambah/hapus menu), supaya selalu sinkron.
 function renderPromoMenuPickers() {
-  const esc = s => s.replace(/"/g, '&quot;');
   const names = allMenu.map(m => m.name);
-  const discountBox = document.getElementById('promo-discount-menu-picker');
-  const bundleBox = document.getElementById('promo-bundle-menu-picker');
-  const qtySelect = document.getElementById('promo-bundle-qty-menu');
-  if (discountBox) {
-    discountBox.innerHTML = names.map(n => `<label><input type="checkbox" class="promo-discount-menu-cb" value="${esc(n)}" /> ${n}</label>`).join('');
-  }
-  if (bundleBox) {
-    bundleBox.innerHTML = names.map(n => `<label><input type="checkbox" class="promo-bundle-menu-cb" value="${esc(n)}" /> ${n}</label>`).join('');
-  }
-  if (qtySelect) {
-    qtySelect.innerHTML = names.map(n => `<option value="${esc(n)}">${n}</option>`).join('');
-  }
+  const cb = (cls, n) => `<label><input type="checkbox" class="${cls}" value="${esc(n)}" /> ${esc(n)}</label>`;
+  $('promo-discount-menu-picker').innerHTML = names.map(n => cb('promo-discount-menu-cb', n)).join('');
+  $('promo-bundle-menu-picker').innerHTML = names.map(n => cb('promo-bundle-menu-cb', n)).join('');
+  $('promo-bundle-qty-menu').innerHTML = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
 }
-
+async function postPromo(payload) {
+  const res = await fetch('/api/promos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Gagal');
+}
 async function addPromo() {
-  const name = document.getElementById('promo-name').value.trim();
-  const type = document.getElementById('promo-type').value;
-  const valid_from = document.getElementById('promo-from').value;
-  const valid_until = document.getElementById('promo-until').value;
-  const time_from = document.getElementById('promo-time-from').value || null;
-  const time_until = document.getElementById('promo-time-until').value || null;
+  const name = $('promo-name').value.trim();
+  const type = $('promo-type').value;
+  const valid_from = $('promo-from').value, valid_until = $('promo-until').value;
+  const time_from = $('promo-time-from').value || null, time_until = $('promo-time-until').value || null;
   if (!name || !valid_from || !valid_until) { showToast('Nama & tanggal wajib diisi'); return; }
   if (valid_until < valid_from) { showToast('Tanggal selesai tidak boleh sebelum tanggal mulai'); return; }
-  if ((time_from && !time_until) || (!time_from && time_until)) {
-    showToast('Isi jam mulai & jam selesai berdua, atau kosongkan berdua'); return;
-  }
-
+  if (!!time_from !== !!time_until) { showToast('Isi jam mulai & jam selesai berdua, atau kosongkan berdua'); return; }
   const payload = { action: 'upsert_promo', name, type, valid_from, valid_until, active: true, time_from, time_until };
-
   if (type === 'discount_percent' || type === 'discount_fixed') {
-    const checked = Array.from(document.querySelectorAll('.promo-discount-menu-cb:checked')).map(cb => cb.value);
+    const checked = [...document.querySelectorAll('.promo-discount-menu-cb:checked')].map(c => c.value);
     payload.applicable_menus = checked.length ? checked.join(',') : null;
     if (type === 'discount_percent') {
-      payload.discount_percent = parseFloat(document.getElementById('promo-discount-percent').value);
+      payload.discount_percent = parseFloat($('promo-discount-percent').value);
       if (!payload.discount_percent) { showToast('Isi persen diskon'); return; }
     } else {
-      payload.discount_fixed = parseFloat(document.getElementById('promo-discount-fixed').value);
+      payload.discount_fixed = parseFloat($('promo-discount-fixed').value);
       if (!payload.discount_fixed) { showToast('Isi potongan Rp'); return; }
     }
   } else if (type === 'bundle') {
-    const checked = Array.from(document.querySelectorAll('.promo-bundle-menu-cb:checked')).map(cb => cb.value);
+    const checked = [...document.querySelectorAll('.promo-bundle-menu-cb:checked')].map(c => c.value);
     payload.bundle_items = checked.join(',');
-    payload.bundle_price = parseFloat(document.getElementById('promo-bundle-price').value);
+    payload.bundle_price = parseFloat($('promo-bundle-price').value);
     if (checked.length < 2 || !payload.bundle_price) { showToast('Pilih minimal 2 menu & isi harga bundle'); return; }
-  } else if (type === 'bundle_qty') {
-    const menuName = document.getElementById('promo-bundle-qty-menu').value;
+  } else {
+    const menuName = $('promo-bundle-qty-menu').value;
     payload.bundle_items = menuName;
-    payload.bundle_qty = parseInt(document.getElementById('promo-bundle-qty-count').value, 10);
-    payload.bundle_price = parseFloat(document.getElementById('promo-bundle-qty-price').value);
-    if (!menuName || !payload.bundle_qty || payload.bundle_qty < 2 || !payload.bundle_price) {
-      showToast('Pilih menu, isi jumlah pcs (min 2), & harga paket'); return;
-    }
+    payload.bundle_qty = parseInt($('promo-bundle-qty-count').value, 10);
+    payload.bundle_price = parseFloat($('promo-bundle-qty-price').value);
+    if (!menuName || !payload.bundle_qty || payload.bundle_qty < 2 || !payload.bundle_price) { showToast('Pilih menu, isi jumlah pcs (min 2), & harga paket'); return; }
   }
-
   try {
-    const res = await fetch('/api/promos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error((await res.json()).error);
-    document.getElementById('promo-name').value = '';
-    document.getElementById('promo-discount-percent').value = '';
-    document.getElementById('promo-discount-fixed').value = '';
-    document.getElementById('promo-bundle-price').value = '';
-    document.getElementById('promo-bundle-qty-count').value = '';
-    document.getElementById('promo-bundle-qty-price').value = '';
-    document.getElementById('promo-from').value = '';
-    document.getElementById('promo-until').value = '';
-    document.getElementById('promo-time-from').value = '';
-    document.getElementById('promo-time-until').value = '';
-    document.querySelectorAll('.promo-discount-menu-cb, .promo-bundle-menu-cb').forEach(cb => cb.checked = false);
+    await postPromo(payload);
+    ['promo-name', 'promo-discount-percent', 'promo-discount-fixed', 'promo-bundle-price', 'promo-bundle-qty-count', 'promo-bundle-qty-price', 'promo-from', 'promo-until', 'promo-time-from', 'promo-time-until'].forEach(id => $(id).value = '');
+    document.querySelectorAll('.promo-discount-menu-cb, .promo-bundle-menu-cb').forEach(c => c.checked = false);
     showToast('Promo tersimpan');
-    await loadPromoData();
-    renderPromoManage();
-    renderMenu();
+    await loadPromoData(); renderPromoManage(); renderCategoryFilter(); renderMenu();
   } catch (e) { showToast('Gagal: ' + e.message); }
 }
-
 async function togglePromoActive(id, current) {
-  try {
-    await fetch('/api/promos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'toggle_promo', id, active: !current }),
-    });
-    await loadPromoData();
-    renderPromoManage();
-    renderMenu();
-  } catch (e) { showToast('Gagal: ' + e.message); }
+  try { await postPromo({ action: 'toggle_promo', id, active: !current }); await loadPromoData(); renderPromoManage(); renderCategoryFilter(); renderMenu(); }
+  catch (e) { showToast('Gagal: ' + e.message); }
 }
-
 async function deletePromo(id) {
   if (!confirm('Hapus promo ini?')) return;
-  await fetch('/api/promos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'delete_promo', id }),
-  });
-  await loadPromoData();
-  renderPromoManage();
-  renderMenu();
+  try { await postPromo({ action: 'delete_promo', id }); await loadPromoData(); renderPromoManage(); renderCategoryFilter(); renderMenu(); }
+  catch (e) { showToast('Gagal: ' + e.message); }
 }
-
 function renderPromoManage() {
-  const container = document.getElementById('promo-manage-list');
-  if (!container) return;
-  if (!allPromos.length) { container.innerHTML = '<div class="empty">Belum ada promo, tambahkan di atas.</div>'; return; }
-  const statusLabel = { aktif: 'Aktif', belum: 'Belum Mulai', selesai: 'Selesai', tutup: 'Tutup Hari Ini' };
-  container.innerHTML = allPromos.map(p => {
+  const box = $('promo-manage-list');
+  if (!allPromos.length) { box.innerHTML = '<div class="empty">Belum ada promo, tambahkan di atas.</div>'; return; }
+  const label = { aktif: 'Aktif', belum: 'Belum Mulai', selesai: 'Selesai', tutup: 'Tutup Hari Ini' };
+  box.innerHTML = allPromos.map(p => {
     const st = promoStatus(p);
-    const detail = p.type === 'discount_percent' ? `Diskon ${p.discount_percent}% ${p.applicable_menus ? '(khusus: ' + p.applicable_menus + ')' : '(semua menu)'}`
-      : p.type === 'discount_fixed' ? `Potongan Rp ${p.discount_fixed.toLocaleString('id-ID')} ${p.applicable_menus ? '(khusus: ' + p.applicable_menus + ')' : '(semua menu)'}`
-      : p.type === 'bundle_qty' ? `${p.bundle_qty}x ${p.bundle_items} = Rp ${p.bundle_price.toLocaleString('id-ID')}`
-      : `Bundle: ${p.bundle_items} · Rp ${p.bundle_price.toLocaleString('id-ID')}`;
-    const jamInfo = p.time_from && p.time_until ? ` · jam ${p.time_from.slice(0,5)}-${p.time_until.slice(0,5)}` : '';
+    const scope = p.applicable_menus ? '(khusus: ' + esc(p.applicable_menus) + ')' : '(semua menu)';
+    const detail = p.type === 'discount_percent' ? `Diskon ${p.discount_percent}% ${scope}`
+      : p.type === 'discount_fixed' ? `Potongan ${rp(p.discount_fixed)} ${scope}`
+      : p.type === 'bundle_qty' ? `${p.bundle_qty}x ${esc(p.bundle_items)} = ${rp(p.bundle_price)}`
+      : `Bundle: ${esc(p.bundle_items)} · ${rp(p.bundle_price)}`;
+    const jam = p.time_from && p.time_until ? ` · jam ${p.time_from.slice(0, 5)}-${p.time_until.slice(0, 5)}` : '';
     return `
       <div class="promo-list-item">
-        <div class="top">
-          <strong>${p.name}</strong>
-          <span class="promo-status ${st}">${statusLabel[st]}</span>
-        </div>
-        <div class="meta">${detail} · ${p.valid_from} s/d ${p.valid_until}${jamInfo}</div>
+        <div class="top"><strong>${esc(p.name)}</strong><span class="promo-status ${st}">${label[st]}</span></div>
+        <div class="meta">${detail} · ${p.valid_from} s/d ${p.valid_until}${jam}</div>
         <div class="meta">
           <button class="small-btn" style="color:#3C3489" onclick="togglePromoActive(${p.id}, ${p.active})">${p.active ? 'nonaktifkan' : 'aktifkan'}</button>
-          &nbsp;·&nbsp;
-          <button class="small-btn" onclick="deletePromo(${p.id})">hapus</button>
+          &nbsp;·&nbsp;<button class="small-btn" onclick="deletePromo(${p.id})">hapus</button>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
 // ---------- Toast ----------
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+let toastTimer = null;
+function showToast(msg, ms = 3000) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 </script>
 </body>
