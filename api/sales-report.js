@@ -1,383 +1,366 @@
-export default async function handler(req, res) {
+// api/sales-report.js
+// Satu function untuk dua kebutuhan (hemat kuota function Vercel Hobby, maks 12):
+//   GET  /api/sales-report?range=&date=  -> laporan tab Laporan di kasir
+//   POST /api/sales-report {pin,from,to} -> terminal owner (PIN dicek di server: env OWNER_PIN)
+// Env: SUPABASE_URL, SUPABASE_ANON_KEY, OWNER_PIN, ABSEN_PIN (PIN rekap sistem absen, untuk nama barista).
+// Barista per shift TIDAK disimpan di nc_sales: dibaca dari absensi (clock in) saat laporan dibuat,
+// jadi tidak ada data ganda dan data lama ikut terbaca.
+import crypto from 'node:crypto';
+
+const TZ = 'Asia/Jakarta';
+const POS_TYPES = 'pos_sale,pos_sale_bundle,pos_sale_free,promo_used';
+const SALE_TYPES = POS_TYPES;
+const SHIFT_SPLIT_MIN = 15 * 60; // Shift 1: sebelum 15:00, Shift 2: 15:00 dst.
+const MAX_DAYS = 93;
+
+function wibParts(d = new Date()) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    }).formatToParts(d).map((x) => [x.type, x.value])
+  );
+  return { date: `${p.year}-${p.month}-${p.day}`, hms: `${p.hour}:${p.minute}:${p.second}`, hour: +p.hour, minute: +p.minute };
+}
+// Shift dari jam transaksi (time_wib kalau ada, kalau tidak dari ts).
+function shiftOfRow(s) {
+  let mins;
+  if (s.time_wib) { const [h, m] = String(s.time_wib).split(':').map(Number); mins = h * 60 + m; }
+  else { const p = wibParts(new Date(Number(s.ts))); mins = p.hour * 60 + p.minute; }
+  return mins < SHIFT_SPLIT_MIN ? 1 : 2;
+}
+function parseYMD(s) { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); }
+function fmtYMD(d) { return d.toISOString().slice(0, 10); }
+function eachDay(a, b) {
+  const out = [];
+  for (let d = parseYMD(a); fmtYMD(d) <= b; d = new Date(d.getTime() + 86400000)) out.push(fmtYMD(d));
+  return out;
+}
+function safeEq(a, b) {
+  const A = Buffer.from(String(a)); const B = Buffer.from(String(b));
+  return A.length === B.length && crypto.timingSafeEqual(A, B);
+}
+// Jumlah cup satu baris penjualan. Bundle dihitung isi paketnya x jumlah paket.
+function cupsOf(s, bundleInfo) {
+  if (s.type !== 'pos_sale_bundle') return s.qty;
+  const p = bundleInfo[s.item];
+  if (!p) return s.qty;
+  const n = p.type === 'bundle_qty' ? (p.bundle_qty || 1)
+    : (String(p.bundle_items || '').split(',').filter((x) => x.trim()).length || 1);
+  return n * s.qty;
+}
+// { 'YYYY-MM-DD|shift': Set(nama) } dari absensi (clock in). Gagal -> kosong + warning, laporan tetap jalan.
+async function loadBaristas(days, from, to, warnings) {
+  const map = {};
+  const URL_ = process.env.SUPABASE_URL, KEY = process.env.SUPABASE_ANON_KEY, PIN = process.env.ABSEN_PIN;
+  if (!PIN) { warnings.push('ABSEN_PIN belum dipasang di Vercel, nama barista per shift belum tampil'); return map; }
+  const months = [...new Set(days.map((d) => d.slice(0, 7)))];
+  await Promise.all(months.map(async (ym) => {
+    const [y, m] = ym.split('-').map(Number);
+    try {
+      const r = await fetch(`${URL_}/rest/v1/rpc/rpc_report`, {
+        method: 'POST',
+        headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_pin: PIN, p_year: y, p_month: m }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      const rep = await r.json();
+      for (const a of rep.attendance || []) {
+        if (a.work_date < from || a.work_date > to) continue;
+        (map[`${a.work_date}|${a.shift}`] ||= new Set()).add(a.employee_name);
+      }
+    } catch (e) {
+      warnings.push(`Data absen ${ym} gagal dimuat: ${String(e.message).slice(0, 120)}`);
+    }
+  }));
+  return map;
+}
+
+async function kasirHandler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-  const PUNCHES_FOR_FREE = 8;
-
-  async function supabase(method, path, body) {
+  async function supabase(path) {
     const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      method,
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation',
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
     });
-    if (!r.ok) {
-      const errText = await r.text();
-      throw new Error(`Supabase ${method} ${path} failed: ${errText}`);
-    }
+    if (!r.ok) throw new Error(await r.text());
     return r.json();
   }
 
   try {
-    let body = req.body;
-    if (typeof body === 'string') body = JSON.parse(body);
-    const { items, customer_email, redeem_free, redeem_item, promo_id, payment_type } = body;
-    // items: [{ menu_name, qty }] — menu_name bisa nama menu biasa ATAU nama promo bundle/bundle_qty
-    // redeem_free: true kalau barista memilih 1 item untuk digratiskan
-    // redeem_item: menu_name item yang digratiskan (wajib kalau redeem_free true, HARUS menu biasa)
-    // promo_id: id promo diskon (nc_promos) yang dipakai — tidak boleh bareng redeem_free
-    // payment_type: 'cash' atau 'qris' — wajib diisi setiap transaksi
+    const { range, date } = req.query; // range: daily | weekly | monthly
+    const anchorStr = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : wibParts().date;
+    const anchor = parseYMD(anchorStr);
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Keranjang kosong' });
+    let start, end;
+    if (range === 'weekly') {
+      const diffToMonday = (anchor.getUTCDay() + 6) % 7; // 0 = Minggu
+      start = new Date(anchor.getTime() - diffToMonday * 86400000);
+      end = new Date(start.getTime() + 6 * 86400000);
+    } else if (range === 'monthly') {
+      start = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), 1));
+      end = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 0));
+    } else {
+      start = anchor;
+      end = anchor;
     }
+    const startStr = fmtYMD(start);
+    const endStr = fmtYMD(end);
 
-    if (payment_type !== 'cash' && payment_type !== 'qris') {
-      return res.status(400).json({ error: 'Metode pembayaran wajib diisi (cash atau qris)' });
-    }
-
-    if (redeem_free && !redeem_item) {
-      return res.status(400).json({ error: 'Pilih item yang mau digratiskan (redeem_item wajib diisi)' });
-    }
-    if (redeem_free && !customer_email) {
-      return res.status(400).json({ error: 'Redeem gratis butuh customer_email' });
-    }
-    if (redeem_free && promo_id) {
-      return res.status(400).json({ error: 'Redeem gratis dan promo diskon tidak boleh dipakai bersamaan' });
-    }
-
-    // Server Vercel jalan di UTC, tapi toko beroperasi di WIB (Asia/Jakarta).
-    // Semua tanggal & jam diambil langsung dari zona Asia/Jakarta (bukan hitungan manual +7 jam).
-    function wibParts(d = new Date()) {
-      const p = Object.fromEntries(
-        new Intl.DateTimeFormat('en-GB', {
-          timeZone: 'Asia/Jakarta',
-          year: 'numeric', month: '2-digit', day: '2-digit',
-          hour: '2-digit', minute: '2-digit', second: '2-digit',
-          hourCycle: 'h23',
-        }).formatToParts(d).map((x) => [x.type, x.value])
+    // Ambil per hari supaya tidak terpotong batas 1000 baris PostgREST (bulanan bisa lebih dari 1000 baris).
+    const days = eachDay(startStr, endStr);
+    const salesParts = [];
+    for (let i = 0; i < days.length; i += 8) {
+      const batch = days.slice(i, i + 8);
+      const parts = await Promise.all(
+        batch.map((d) => supabase(`nc_sales?date=eq.${d}&type=in.(${POS_TYPES})&order=ts.asc`))
       );
-      return {
-        date: `${p.year}-${p.month}-${p.day}`,       // YYYY-MM-DD
-        hm: `${p.hour}:${p.minute}`,                 // HH:MM (untuk cek jam promo)
-        hms: `${p.hour}:${p.minute}:${p.second}`,    // HH:MM:SS (disimpan ke time_wib)
-      };
+      salesParts.push(...parts);
     }
-    const wib = wibParts();
-    const dateStr = wib.date;
-    const nowTime = wib.hm;
-    const nowHMS = wib.hms;
-    const ts = Date.now();
+    const posSales = salesParts.flat();
 
-    // 1. Ambil harga menu terbaru DAN promo bundle terkait dari DB (jangan percaya harga dari client)
-    const itemNames = items.map((i) => i.menu_name);
-    const encodedNames = itemNames.map(encodeURIComponent).join(',');
-    const [menuRows, bundlePromoRows] = await Promise.all([
-      supabase('GET', `nc_menu?name=in.(${encodedNames})`),
-      supabase('GET', `nc_promos?name=in.(${encodedNames})&type=in.(bundle,bundle_qty)`),
+    const [menuRows, promoRows] = await Promise.all([
+      supabase(`nc_menu?select=name,price,category`),
+      supabase(`nc_promos?select=name,bundle_price,type,bundle_items,bundle_qty&type=in.(bundle,bundle_qty)`),
     ]);
-    const menuMap = Object.fromEntries(menuRows.map((m) => [m.name, m]));
-    const bundleMap = Object.fromEntries(bundlePromoRows.map((p) => [p.name, p])); // key = nama promo bundle
-
-    // Validasi tiap baris keranjang: harus menu biasa ATAU promo bundle yang masih berlaku
-    for (const it of items) {
-      const isMenu = !!menuMap[it.menu_name];
-      const bundle = bundleMap[it.menu_name];
-      if (!isMenu && !bundle) {
-        return res.status(400).json({ error: `Menu "${it.menu_name}" tidak ditemukan` });
-      }
-      if (bundle) {
-        if (!bundle.active || dateStr < bundle.valid_from || dateStr > bundle.valid_until) {
-          return res.status(400).json({ error: `Promo bundle "${it.menu_name}" sudah tidak aktif atau di luar periode berlaku` });
-        }
-        if (bundle.time_from && bundle.time_until) {
-          const from = bundle.time_from.slice(0, 5);
-          const until = bundle.time_until.slice(0, 5);
-          if (!(nowTime >= from && nowTime <= until)) {
-            return res.status(400).json({ error: `Promo bundle "${it.menu_name}" hanya berlaku jam ${from}-${until}` });
-          }
-        }
-      }
-    }
-
-    if (redeem_free) {
-      const target = items.find((it) => it.menu_name === redeem_item);
-      if (!target || target.qty < 1) {
-        return res.status(400).json({ error: `Item redeem "${redeem_item}" tidak ada di keranjang` });
-      }
-      if (bundleMap[redeem_item]) {
-        return res.status(400).json({ error: 'Item bundle tidak bisa dijadikan redeem gratis' });
-      }
-    }
-
-    // PENTING: validasi punch cukup SEBELUM ada mutasi apapun (stok / sales / punch),
-    // supaya kalau redeem ditolak, transaksi belum menyentuh data apapun sama sekali.
-    let punchRecord = null;
-    if (customer_email) {
-      const existing = await supabase(
-        'GET',
-        `punches?email=eq.${encodeURIComponent(customer_email)}&limit=1`
-      );
-      punchRecord = existing && existing.length > 0 ? existing[0] : null;
-    }
-    if (redeem_free) {
-      if (!punchRecord || punchRecord.punches < PUNCHES_FOR_FREE) {
-        return res.status(400).json({ error: 'Punch belum cukup untuk redeem gratis (butuh 8/8)' });
-      }
-    }
-
-    // 2b. Validasi & ambil promo diskon dari DB (jangan percaya nominal dari client)
-    let appliedPromo = null;
-    if (promo_id) {
-      const promoRows = await supabase('GET', `nc_promos?id=eq.${promo_id}&limit=1`);
-      const promo = promoRows && promoRows[0];
-      if (!promo) {
-        return res.status(400).json({ error: 'Promo tidak ditemukan' });
-      }
-      if (!promo.active || dateStr < promo.valid_from || dateStr > promo.valid_until) {
-        return res.status(400).json({ error: 'Promo sudah tidak aktif atau di luar periode berlaku' });
-      }
-      if (promo.time_from && promo.time_until) {
-        const from = promo.time_from.slice(0, 5);
-        const until = promo.time_until.slice(0, 5);
-        if (!(nowTime >= from && nowTime <= until)) {
-          return res.status(400).json({ error: `Promo hanya berlaku jam ${from}-${until}` });
-        }
-      }
-      if (promo.type !== 'discount_percent' && promo.type !== 'discount_fixed') {
-        return res.status(400).json({ error: 'Jenis promo ini tidak bisa diterapkan saat checkout' });
-      }
-      appliedPromo = promo;
-    }
-
-    // Kumpulkan semua nama menu ASLI yang perlu dicek resepnya:
-    // - item menu biasa di keranjang
-    // - menu yang ada di dalam bundle (bundle_items promo)
-    const recipeLookupNames = new Set();
-    for (const it of items) {
-      const bundle = bundleMap[it.menu_name];
-      if (bundle) {
-        if (bundle.type === 'bundle') {
-          bundle.bundle_items.split(',').map((s) => s.trim()).forEach((n) => recipeLookupNames.add(n));
-        } else if (bundle.type === 'bundle_qty') {
-          recipeLookupNames.add(bundle.bundle_items.trim());
-        }
-      } else {
-        recipeLookupNames.add(it.menu_name);
-      }
-    }
-    const recipeRows = recipeLookupNames.size
-      ? await supabase('GET', `nc_recipe?menu_name=in.(${[...recipeLookupNames].map(encodeURIComponent).join(',')})`)
-      : [];
-
-    // 3. Hitung total bahan baku yang harus dikurangi (agregat lintas item, termasuk isi bundle)
-    const deduction = {}; // { ingredient_name: totalQty }
-    for (const it of items) {
-      const bundle = bundleMap[it.menu_name];
-      if (bundle && bundle.type === 'bundle') {
-        // 1 paket = 1x tiap menu yang ada di bundle_items
-        const names = bundle.bundle_items.split(',').map((s) => s.trim());
-        for (const menuName of names) {
-          const recipesForMenu = recipeRows.filter((r) => r.menu_name === menuName);
-          for (const r of recipesForMenu) {
-            deduction[r.ingredient_name] = (deduction[r.ingredient_name] || 0) + r.qty_used * it.qty;
-          }
-        }
-      } else if (bundle && bundle.type === 'bundle_qty') {
-        // 1 paket = N pcs menu yang sama
-        const menuName = bundle.bundle_items.trim();
-        const totalPcs = bundle.bundle_qty * it.qty;
-        const recipesForMenu = recipeRows.filter((r) => r.menu_name === menuName);
-        for (const r of recipesForMenu) {
-          deduction[r.ingredient_name] = (deduction[r.ingredient_name] || 0) + r.qty_used * totalPcs;
-        }
-      } else {
-        const recipesForMenu = recipeRows.filter((r) => r.menu_name === it.menu_name);
-        for (const r of recipesForMenu) {
-          deduction[r.ingredient_name] = (deduction[r.ingredient_name] || 0) + r.qty_used * it.qty;
-        }
-      }
-    }
-
-    // Helper: harga 1 baris keranjang (menu biasa pakai nc_menu.price, bundle pakai bundle_price promo)
-    function lineTotal(it) {
-      const bundle = bundleMap[it.menu_name];
-      if (bundle) return bundle.bundle_price * it.qty;
-      return menuMap[it.menu_name].price * it.qty;
-    }
-
-    // 5a. Catat penjualan ke nc_sales (satu baris per menu item) — dipakai sales-report.js untuk omzet
-    // time_wib sekarang berformat HH:MM:SS (jam Jakarta, lengkap dengan detik).
-    // Kalau ada item yang di-redeem gratis, pisahkan 1 pcs-nya jadi baris 'pos_sale_free'
-    // (qty gratis = 1, tetap tercatat untuk potong stok bahan baku, tapi TIDAK dihitung sebagai omzet)
-    // CATATAN: item bundle dicatat sebagai type 'pos_sale_bundle' dengan qty = jumlah paket terjual.
-    const salesPayload = [];
-    for (const it of items) {
-      const bundle = bundleMap[it.menu_name];
-      if (bundle) {
-        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale_bundle', item: it.menu_name, qty: it.qty, unit: 'paket' });
-      } else if (redeem_free && it.menu_name === redeem_item) {
-        const paidQty = it.qty - 1;
-        if (paidQty > 0) {
-          salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale', item: it.menu_name, qty: paidQty, unit: 'pcs' });
-        }
-        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale_free', item: it.menu_name, qty: 1, unit: 'pcs' });
-      } else {
-        salesPayload.push({ date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'pos_sale', item: it.menu_name, qty: it.qty, unit: 'pcs' });
-      }
-    }
-
-    // 5b. Catat pemakaian bahan baku per gramasi (dari `deduction` di langkah 3) —
-    // type:'manual' supaya kebaca sama seperti input manual barista di Forecast,
-    // Dashboard, dan Export Laporan (Log Harian & Ringkasan Pemakaian).
-    const unitMap = {};
-    for (const r of recipeRows) unitMap[r.ingredient_name] = r.unit;
-    const ingredientSalesPayload = ingredientNames.map((ing) => ({
-      date: dateStr,
-      ts,
-      time_wib: null,
-      payment_type: null,
-      type: 'manual',
-      item: ing,
-      qty: Number(deduction[ing].toFixed(3)),
-      unit: unitMap[ing] || '',
-    }));
-
-    // 5c. Catat pemakaian promo diskon (kalau ada) — biar kelihatan "transaksi mana pakai promo apa" di Laporan
-    // Diskon cuma berlaku untuk item MENU BIASA (bukan bundle, karena bundle sudah harga paket sendiri).
-    const promoSalesPayload = [];
-    let discountAmount = 0;
-    if (appliedPromo) {
-      const discountableSubtotal = () => {
-        if (!appliedPromo.applicable_menus) {
-          return items.reduce((sum, it) => (bundleMap[it.menu_name] ? sum : sum + menuMap[it.menu_name].price * it.qty), 0);
-        }
-        const allowed = appliedPromo.applicable_menus.split(',').map((x) => x.trim());
-        return items.reduce((sum, it) => {
-          if (bundleMap[it.menu_name]) return sum;
-          return allowed.includes(it.menu_name) ? sum + menuMap[it.menu_name].price * it.qty : sum;
-        }, 0);
-      };
-      const base = discountableSubtotal();
-      discountAmount = appliedPromo.type === 'discount_percent'
-        ? Math.round(base * appliedPromo.discount_percent / 100)
-        : Math.min(appliedPromo.discount_fixed, base);
-      promoSalesPayload.push({
-        date: dateStr, ts, time_wib: nowHMS, payment_type, type: 'promo_used', item: appliedPromo.name, qty: discountAmount, unit: 'Rp',
-      });
-    }
-
-    await supabase('POST', 'nc_sales', [...salesPayload, ...ingredientSalesPayload, ...promoSalesPayload]);
-
-    // 4. (dijalankan setelah penjualan tercatat) Kurangi stok, siapkan warning kalau kurang (tidak menghalangi transaksi)
-    const ingredientNames = Object.keys(deduction);
+    const priceMap = Object.fromEntries(menuRows.map((m) => [m.name, m.price]));
+    const bundlePriceMap = Object.fromEntries(promoRows.map((p) => [p.name, p.bundle_price]));
+    const bundleInfo = Object.fromEntries(promoRows.map((p) => [p.name, p]));
     const warnings = [];
-    if (ingredientNames.length > 0) {
-      const stockRows = await supabase(
-        'GET',
-        `nc_inventory?name=in.(${ingredientNames.map(encodeURIComponent).join(',')})`
-      );
-      const stockMap = Object.fromEntries(stockRows.map((s) => [s.name, s.stock]));
+    const baristaByKey = await loadBaristas(days, startStr, endStr, warnings);
 
-      await Promise.all(ingredientNames.map((ing) => {
-        if (!(ing in stockMap)) {
-          warnings.push(`Bahan "${ing}" tidak ditemukan di nc_inventory — stok TIDAK dikurangi untuk bahan ini. Cek nama di resep vs nc_inventory.`);
-          return null;
-        }
-        const currentStock = stockMap[ing];
-        const newStock = currentStock - deduction[ing];
-        if (newStock < 0) {
-          warnings.push(`Stok "${ing}" minus (${newStock}) setelah transaksi ini`);
-        }
-        return supabase('PATCH', `nc_inventory?name=eq.${encodeURIComponent(ing)}`, {
-          stock: newStock,
-          updated_at: new Date().toISOString(),
-        });
-      }));
-    }
+    let grandTotal = 0;
+    const rows = posSales.map((s) => {
+      const isFree = s.type === 'pos_sale_free';
+      const isBundle = s.type === 'pos_sale_bundle';
+      const isPromo = s.type === 'promo_used'; // qty = nominal potongan (Rp), disimpan checkout.js
 
-    // Hitung berapa "cup" yang terjual di transaksi ini untuk keperluan punch loyalty.
-    // Aturan: 1 menu = 1 punch. Bundle beda-menu (type 'bundle') menghitung tiap menu
-    // di dalamnya; bundle qty-sama (type 'bundle_qty') menghitung N pcs-nya. Item yang
-    // sedang di-redeem gratis TIDAK menambah punch sama sekali (baik itu sendiri
-    // maupun qty lain di keranjang) — sesuai desain awal: redeem tidak numpuk dengan nabung punch baru.
-    function computePunchCount() {
-      if (redeem_free) return 0;
-      let count = 0;
-      for (const it of items) {
-        const bundle = bundleMap[it.menu_name];
-        if (bundle && bundle.type === 'bundle') {
-          const menuCount = bundle.bundle_items.split(',').map((s) => s.trim()).filter(Boolean).length;
-          count += menuCount * it.qty;
-        } else if (bundle && bundle.type === 'bundle_qty') {
-          count += bundle.bundle_qty * it.qty;
-        } else {
-          count += it.qty;
-        }
-      }
-      return count;
-    }
+      let price;
+      if (isPromo) price = -s.qty;
+      else if (isFree) price = 0;
+      else if (isBundle) price = bundlePriceMap[s.item] ?? 0;
+      else price = priceMap[s.item] ?? 0;
 
-    // 6. Loyalty punch (kalau ada customer)
-    // Catatan: kalau redeem_free, transaksi ini TIDAK menambah punch baru (customer memakai
-    // hadiah gratisnya, bukan menabung punch baru dari transaksi yang sama).
-    let punchResult = null;
-    if (customer_email) {
-      if (redeem_free) {
-        const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: punchRecord.punches - PUNCHES_FOR_FREE,
-          free_redeemed: punchRecord.free_redeemed + 1,
-          updated_at: new Date().toISOString(),
-        });
-        punchResult = updated[0];
-      } else if (punchRecord) {
-        const addPunches = computePunchCount();
-        const updated = await supabase('PATCH', `punches?email=eq.${encodeURIComponent(customer_email)}`, {
-          punches: punchRecord.punches + addPunches,
-          total_punches: punchRecord.total_punches + addPunches,
-          updated_at: new Date().toISOString(),
-        });
-        punchResult = updated[0];
-      } else {
-        const addPunches = computePunchCount();
-        const created = await supabase('POST', 'punches', {
-          email: customer_email,
-          punches: addPunches,
-          total_punches: addPunches,
-          free_redeemed: 0,
-        });
-        punchResult = created[0];
-      }
-    }
+      const subtotal = isPromo ? -s.qty : (isFree ? 0 : price * s.qty);
+      grandTotal += subtotal;
 
-    // 7. Total yang harus dibayar — kurangi harga 1 pcs dari item yang di-redeem gratis, atau potongan promo
-    let total = items.reduce((sum, it) => sum + lineTotal(it), 0);
-    if (redeem_free) {
-      total -= menuMap[redeem_item].price;
-    } else if (appliedPromo) {
-      total -= discountAmount;
+      // Jam transaksi (WIB, dengan detik). Data lama yang belum punya time_wib diambil dari ts.
+      const time = s.time_wib ? String(s.time_wib).slice(0, 8) : (s.ts ? wibParts(new Date(Number(s.ts))).hms : '');
+
+      const shift = shiftOfRow(s);
+      const barista = [...(baristaByKey[`${s.date}|${shift}`] || [])].sort().join(' & ');
+      return {
+        date: s.date,
+        time,
+        shift,
+        barista,
+        cups: isPromo ? 0 : cupsOf(s, bundleInfo),
+        item: isPromo ? `Diskon: ${s.item}` : s.item,
+        qty: isPromo ? 1 : s.qty,
+        unit: isPromo ? 'promo' : s.unit,
+        price,
+        subtotal,
+        payment_type: s.payment_type || '',
+        tipe: isPromo ? 'diskon' : (isFree ? 'redeem_gratis' : 'bayar'),
+      };
+    });
+
+    // Rekap per tanggal + shift: siapa yang jaga & berapa cup terjual (omzet sudah net diskon).
+    const shiftMap = {};
+    for (const r of rows) {
+      const k2 = `${r.date}|${r.shift}`;
+      const a = (shiftMap[k2] ||= { date: r.date, shift: r.shift, barista: r.barista, cups: 0, omzet: 0 });
+      a.cups += r.cups; a.omzet += r.subtotal;
     }
-    total = Math.max(0, total);
+    const shifts = Object.values(shiftMap).sort((a, b) => a.date.localeCompare(b.date) || a.shift - b.shift);
+
+    const summaryMap = {};
+    for (const r of rows) {
+      if (r.tipe === 'diskon') continue; // diskon masuk grand_total, bukan ranking item
+      if (!summaryMap[r.item]) summaryMap[r.item] = { item: r.item, qty: 0, total: 0 };
+      summaryMap[r.item].qty += r.qty;
+      summaryMap[r.item].total += r.subtotal;
+    }
+    const summary = Object.values(summaryMap).sort((a, b) => b.qty - a.qty);
 
     return res.status(200).json({
-      ok: true,
-      total,
+      range: range || 'daily',
+      start: startStr,
+      end: endStr,
+      rows,
+      summary,
+      grand_total: grandTotal,
+      shifts,
       warnings,
-      punch: punchResult,
-      redeemed_item: redeem_free ? redeem_item : null,
-      applied_promo: appliedPromo ? appliedPromo.name : null,
-      discount_amount: discountAmount,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
+}
+
+async function ownerHandler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+  const URL_ = process.env.SUPABASE_URL;
+  const KEY = process.env.SUPABASE_ANON_KEY;
+  const OWNER_PIN = process.env.OWNER_PIN;
+  if (!OWNER_PIN) return res.status(500).json({ error: 'OWNER_PIN belum terpasang di Vercel' });
+
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+  const { pin, from, to } = body || {};
+
+  if (!pin || !safeEq(pin, OWNER_PIN)) return res.status(401).json({ error: 'PIN salah' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '') || from > to) {
+    return res.status(400).json({ error: 'Rentang tanggal tidak valid' });
+  }
+  const days = eachDay(from, to);
+  if (days.length > MAX_DAYS) return res.status(400).json({ error: `Maksimal ${MAX_DAYS} hari per laporan` });
+
+  const headers = { apikey: KEY, Authorization: `Bearer ${KEY}` };
+  async function sb(path) {
+    const r = await fetch(`${URL_}/rest/v1/${path}`, { headers });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  try {
+    const warnings = [];
+
+    // Penjualan: ambil per hari supaya tidak terpotong batas 1000 baris.
+    const sales = [];
+    for (let i = 0; i < days.length; i += 8) {
+      const parts = await Promise.all(
+        days.slice(i, i + 8).map((d) => sb(`nc_sales?date=eq.${d}&type=in.(${SALE_TYPES})&order=ts.asc`))
+      );
+      parts.forEach((rows, k) => {
+        if (rows.length >= 1000) warnings.push(`Data ${days[i + k]} mencapai batas 1000 baris, kemungkinan tidak lengkap`);
+        sales.push(...rows);
+      });
+    }
+
+    const [menuRows, promoRows] = await Promise.all([
+      sb('nc_menu?select=name,price,category,active'),
+      sb('nc_promos?select=name,bundle_price,type,bundle_items,bundle_qty&type=in.(bundle,bundle_qty)'),
+    ]);
+    const priceMap = Object.fromEntries(menuRows.map((m) => [m.name, m.price]));
+    const bundlePrice = Object.fromEntries(promoRows.map((p) => [p.name, p.bundle_price]));
+    const bundleInfo = Object.fromEntries(promoRows.map((p) => [p.name, p]));
+
+    // Peta ts -> metode bayar, supaya diskon ikut dikurangkan dari metode bayar yang benar.
+    const payByTs = {};
+    for (const s of sales) if (s.type !== 'promo_used' && s.payment_type) payByTs[s.ts] = s.payment_type;
+
+    const blank = () => ({ gross: 0, diskon: 0, pcs: 0 });
+    const byDay = {};
+    for (const d of days) byDay[d] = { date: d, 1: blank(), 2: blank() };
+    const items = {};
+    const payments = { cash: 0, qris: 0 };
+    const txSet = new Set();
+    let gratis = 0;
+
+    for (const s of sales) {
+      const day = byDay[s.date];
+      if (!day) continue;
+      const sh = shiftOfRow(s);
+
+      if (s.type === 'promo_used') {
+        day[sh].diskon += s.qty;
+        const pt = payByTs[s.ts];
+        if (pt in payments) payments[pt] -= s.qty;
+        continue;
+      }
+
+      const isFree = s.type === 'pos_sale_free';
+      const isBundle = s.type === 'pos_sale_bundle';
+      const price = isFree ? 0 : isBundle ? (bundlePrice[s.item] ?? 0) : (priceMap[s.item] ?? 0);
+      const sub = price * s.qty;
+
+      day[sh].gross += sub;
+      day[sh].pcs += cupsOf(s, bundleInfo); // cup, bundle dihitung isi paketnya
+      txSet.add(s.ts);
+      if (isFree) gratis += s.qty;
+      if (s.payment_type in payments) payments[s.payment_type] += sub;
+
+      if (!items[s.item]) items[s.item] = { item: s.item, qty: 0, omzet: 0, bundle: isBundle };
+      items[s.item].qty += s.qty;
+      items[s.item].omzet += sub;
+    }
+
+    // Barista per tanggal+shift = yang clock in di absensi (satu sumber, tanpa data ganda).
+    const baristaByKey = await loadBaristas(days, from, to, warnings);
+
+    // Rangkuman harian, per shift, dan per barista.
+    const daysOut = [];
+    const shiftRows = [];
+    const shiftTotals = { 1: blank(), 2: blank() };
+    const baristaAgg = {};
+    for (const d of days) {
+      const row = { date: d, gross: 0, diskon: 0, pcs: 0, s1: null, s2: null };
+      for (const sh of [1, 2]) {
+        const b = byDay[d][sh];
+        const omzet = b.gross - b.diskon;
+        row[`s${sh}`] = { omzet, pcs: b.pcs };
+        row.gross += b.gross; row.diskon += b.diskon; row.pcs += b.pcs;
+        shiftTotals[sh].gross += b.gross; shiftTotals[sh].diskon += b.diskon; shiftTotals[sh].pcs += b.pcs;
+
+        const names = [...(baristaByKey[`${d}|${sh}`] || [])].sort();
+        if (b.pcs > 0 || names.length) {
+          shiftRows.push({ date: d, shift: sh, baristas: names, pcs: b.pcs, omzet });
+          names.forEach((n) => {
+            const a = (baristaAgg[n] ||= { name: n, shifts: 0, pcs: 0, omzet: 0, shared: false });
+            a.shifts += 1;
+            a.pcs += b.pcs / names.length;
+            a.omzet += omzet / names.length;
+            if (names.length > 1) a.shared = true;
+          });
+        }
+      }
+      row.omzet = row.gross - row.diskon;
+      daysOut.push(row);
+    }
+
+    const totalGross = daysOut.reduce((s, d) => s + d.gross, 0);
+    const totalDiskon = daysOut.reduce((s, d) => s + d.diskon, 0);
+    const totalPcs = daysOut.reduce((s, d) => s + d.pcs, 0);
+
+    const itemList = Object.values(items).sort((a, b) => b.qty - a.qty || b.omzet - a.omzet);
+    const regular = menuRows
+      .filter((m) => m.active !== false)
+      .map((m) => ({ item: m.name, qty: items[m.name]?.qty || 0, omzet: items[m.name]?.omzet || 0 }))
+      .sort((a, b) => a.qty - b.qty || a.item.localeCompare(b.item));
+
+    return res.status(200).json({
+      range: { from, to, days: days.length },
+      totals: {
+        omzet: totalGross - totalDiskon, gross: totalGross, diskon: totalDiskon,
+        pcs: totalPcs, transaksi: txSet.size, gratis,
+      },
+      shifts: {
+        1: { omzet: shiftTotals[1].gross - shiftTotals[1].diskon, pcs: shiftTotals[1].pcs },
+        2: { omzet: shiftTotals[2].gross - shiftTotals[2].diskon, pcs: shiftTotals[2].pcs },
+      },
+      payments,
+      days: daysOut,
+      shiftRows,
+      baristas: Object.values(baristaAgg).sort((a, b) => b.omzet - a.omzet),
+      items: itemList,
+      top5: itemList.slice(0, 5),
+      bottom5: regular.slice(0, 5),
+      warnings,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export default function handler(req, res) {
+  return req.method === 'POST' ? ownerHandler(req, res) : kasirHandler(req, res);
 }
