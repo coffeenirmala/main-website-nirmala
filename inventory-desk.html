@@ -1113,15 +1113,71 @@ async function submitCek(){
 }
 
 // ── OWNER: SELISIH ──
-let _sel={rows:[]};
+// Periode: Shift (1 tanggal + 1 shift), Harian, Mingguan (Senin–Minggu), Bulanan (tgl 1 s/d akhir bulan).
+// Periode yang masih berjalan dipotong sampai HARI INI, mis. bulanan Oktober dilihat tgl 16 = 1–16 Okt.
+let _sel={rows:[],range:null};
+let _selMode='harian';
+const MONTHS_ID=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 function addDays(ymd,n){const d=new Date(ymd+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);}
-function renderSelisih(){setTimeout(loadSelisih,0);const t=today();
+function fmtTgl(ymd){const [y,m,d]=ymd.split('-').map(Number);return d+' '+MONTHS_ID[m-1].slice(0,3)+' '+y;}
+function renderSelisih(){
+  setTimeout(()=>setSelMode(_selMode),0);
+  const modes=[['shift','Shift'],['harian','Harian'],['mingguan','Mingguan'],['bulanan','Bulanan']];
   return '<div class="page-header"><div class="page-title">Selisih.</div><div class="page-subtitle">Stok fisik hasil timbang vs catatan sistem, per cek & per barista</div></div>'+
-  '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:24px;">'+
-  '<div><label class="form-label">Dari</label><input type="date" class="form-input" id="sl-a" value="'+addDays(t,-6)+'" style="margin:0;"></div>'+
-  '<div><label class="form-label">Sampai</label><input type="date" class="form-input" id="sl-b" value="'+t+'" style="margin:0;"></div>'+
-  '<button class="btn-sm" onclick="loadSelisih()">Tampilkan</button><button class="btn-ghost" onclick="exportSelisih()">⬇ Excel</button></div>'+
+  '<div style="display:flex;gap:8px;margin-bottom:16px;max-width:560px;">'+
+    modes.map(([k,l])=>'<button type="button" class="btn-ghost sel-mode" id="sm-'+k+'" style="flex:1;" onclick="setSelMode(\''+k+'\')">'+l+'</button>').join('')+'</div>'+
+  '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;">'+
+    '<div id="sel-fields" style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;"></div>'+
+    '<div><label class="form-label">Barista</label><select class="form-input" id="sl-bar" style="margin:0;min-width:190px;" onchange="drawSelisih()"><option value="">Semua barista</option></select></div>'+
+    '<button class="btn-sm" onclick="loadSelisih()">Tampilkan</button><button class="btn-ghost" onclick="exportSelisih()">⬇ Excel</button></div>'+
+  '<div id="sl-range" style="font-size:12px;color:var(--mist);margin-bottom:24px;"></div>'+
   '<div id="sl-body">Memuat…</div><div id="sl-price" style="margin-top:48px;"></div>';}
+function setSelMode(m){
+  _selMode=m;
+  document.querySelectorAll('.sel-mode').forEach(b=>{const on=b.id==='sm-'+m;b.style.background=on?'var(--ink)':'transparent';b.style.color=on?'var(--paper)':'var(--ink)';});
+  const f=document.getElementById('sel-fields');if(!f)return;
+  const t=today(),dateIn=lbl=>'<div><label class="form-label">'+lbl+'</label><input type="date" class="form-input" id="sl-d" value="'+t+'" max="'+t+'" style="margin:0;" onchange="loadSelisih()"></div>';
+  if(m==='shift'){
+    f.innerHTML=dateIn('Tanggal')+'<div><label class="form-label">Shift</label><select class="form-input" id="sl-s" style="margin:0;" onchange="loadSelisih()"><option value="1">Shift 1 · Buka Pagi + Pergantian</option><option value="2">Shift 2 · Closing</option></select></div>';
+  } else if(m==='harian'){
+    f.innerHTML=dateIn('Tanggal');
+  } else if(m==='mingguan'){
+    f.innerHTML=dateIn('Tanggal (minggu tsb)');
+  } else {
+    const [y,mo]=t.split('-').map(Number);let ys='';for(let i=y;i>=y-3;i--)ys+='<option value="'+i+'">'+i+'</option>';
+    f.innerHTML='<div><label class="form-label">Bulan</label><select class="form-input" id="sl-m" style="margin:0;" onchange="loadSelisih()">'+
+      MONTHS_ID.map((n,i)=>'<option value="'+(i+1)+'"'+(i+1===mo?' selected':'')+'>'+n+'</option>').join('')+'</select></div>'+
+      '<div><label class="form-label">Tahun</label><select class="form-input" id="sl-y" style="margin:0;" onchange="loadSelisih()">'+ys+'</select></div>';
+  }
+  showSelRange();loadSelisih();
+}
+function selRange(){
+  const t=today(),m=_selMode;let from,to,label,shift=null,desc;
+  if(m==='bulanan'){
+    const y=+document.getElementById('sl-y').value,mo=+document.getElementById('sl-m').value,mm=String(mo).padStart(2,'0');
+    from=y+'-'+mm+'-01';to=addDays((mo===12?(y+1)+'-01':y+'-'+String(mo+1).padStart(2,'0'))+'-01',-1);
+    label='bulanan-'+y+'-'+mm;desc='Bulan '+MONTHS_ID[mo-1]+' '+y;
+  } else {
+    const d=document.getElementById('sl-d').value;if(!d)return {error:'Pilih tanggal dulu'};
+    if(m==='mingguan'){
+      const dow=new Date(d+'T00:00:00Z').getUTCDay();from=addDays(d,-((dow+6)%7));to=addDays(from,6);
+      label='mingguan-'+from;desc='Minggu Senin–Minggu';
+    } else {
+      from=to=d;
+      if(m==='shift'){shift=+document.getElementById('sl-s').value;label='shift'+shift+'-'+d;desc='Shift '+shift;}
+      else{label='harian-'+d;desc='Harian';}
+    }
+  }
+  if(from>t)return {error:'Periode itu belum berjalan'};
+  const capped=to>t;if(capped)to=t;
+  return {from,to,label,shift,desc,capped};
+}
+function showSelRange(){
+  const el=document.getElementById('sl-range');if(!el)return;
+  const r=selRange();
+  el.innerHTML=r.error?'<span style="color:var(--danger);">'+esc(r.error)+'</span>'
+    :'Periode: <strong>'+fmtTgl(r.from)+(r.to!==r.from?' – '+fmtTgl(r.to):'')+'</strong> · '+esc(r.desc)+(r.capped?' (masih berjalan, dihitung sampai hari ini)':'');
+}
 const respName=r=>(r.shift===1?r.shift1:r.shift2)||null;
 function statusTag(r){
   if(r.status==='ok')return '<span class="status-pill s-ok"><span class="dot dot-ok"></span>Tersimpan '+esc(r.submitted_at||'')+'</span>';
@@ -1130,23 +1186,39 @@ function statusTag(r){
 }
 async function loadSelisih(){
   const el=document.getElementById('sl-body');if(!el)return;
-  const a=document.getElementById('sl-a').value,b=document.getElementById('sl-b').value;
+  const r=selRange();showSelRange();
+  if(r.error){el.innerHTML='';return;}
   el.innerHTML='Memuat…';
-  const {data,error}=await sb.rpc('nc_stock_check_report',{p_from:a,p_to:b});
+  const {data,error}=await sb.rpc('nc_stock_check_report',{p_from:r.from,p_to:r.to});
   if(!document.getElementById('sl-body'))return;
   if(error){el.innerHTML='<div class="alert-strip alert-danger"><div><div class="alert-label" style="color:var(--danger);">Gagal memuat laporan</div><div class="alert-body">'+esc(error.message)+'</div></div></div>';return;}
-  _sel.rows=data||[];
-  const done=_sel.rows.filter(r=>r.status==='ok');
+  _sel.range=r;
+  _sel.rows=(data||[]).filter(x=>(x.status==='ok'||x.status==='terlewat')&&(r.shift==null||x.shift===r.shift));
+  // daftar barista untuk filter (penanggung jawab di periode ini)
+  const sel=document.getElementById('sl-bar'),prev=sel.value;
+  const names=[...new Set(_sel.rows.map(respName).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">Semua barista</option>'+names.map(n=>'<option'+(n===prev?' selected':'')+'>'+esc(n)+'</option>').join('');
+  drawSelisih();
+  drawPrices();
+}
+function selRows(){
+  const bar=(document.getElementById('sl-bar')||{}).value||'';
+  return bar?_sel.rows.filter(r=>respName(r)===bar):_sel.rows;
+}
+function drawSelisih(){
+  const el=document.getElementById('sl-body');if(!el)return;
+  const rowsData=selRows();
+  const done=rowsData.filter(r=>r.status==='ok');
   const total=done.reduce((s,r)=>s+(+r.total_variance_rp||0),0);
-  const missed=_sel.rows.filter(r=>r.status==='terlewat').length;
+  const missed=rowsData.filter(r=>r.status==='terlewat').length;
   const red=done.reduce((s,r)=>s+(r.lines||[]).filter(l=>l.flagged).length,0);
-  const rows=[..._sel.rows].reverse().filter(r=>r.status==='ok'||r.status==='terlewat').map(r=>{
+  const rows=[...rowsData].reverse().map(r=>{
     const nm=n=>n?esc(n):(r.work_date===today()?'<span style="color:var(--warn);">menunggu clock in</span>':'<span style="color:var(--mist);">tidak ada clock in</span>');
     const who=r.check_type==='handover'
       ?nm(r.shift1)+' <span style="color:var(--mist);">→ '+(r.shift2?esc(r.shift2):'—')+'</span>'
       :nm(respName(r));
     const ls=r.lines||[],f=ls.filter(l=>l.flagged);
-    let main='<tr><td><div class="item-name">'+esc(r.label)+'</div><div class="item-unit">'+esc(r.work_date)+'</div></td>'+
+    let main='<tr><td><div class="item-name">'+esc(r.label)+'</div><div class="item-unit">'+esc(r.work_date)+' · Shift '+r.shift+'</div></td>'+
       '<td>'+who+'</td><td>'+statusTag(r)+'</td>'+
       '<td style="font-weight:700;color:'+((+r.total_variance_rp||0)>0?'var(--danger)':'var(--ink)')+';">'+(r.status==='ok'?fmtRp(+r.total_variance_rp):'—')+'</td></tr>';
     if(r.status!=='ok')return main;
@@ -1167,9 +1239,8 @@ async function loadSelisih(){
     '<div class="stat-cell"><div class="stat-label">Cek terlewat</div><div class="stat-value '+(missed?'danger':'green')+'">'+missed+'</div></div>'+
     '<div class="stat-cell"><div class="stat-label">Bahan merah</div><div class="stat-value '+(red?'warn':'green')+'">'+red+'</div><div class="stat-note">selisih di atas 5%</div></div></div>'+
     (rows?'<table class="data-table"><thead><tr><th>Cek</th><th>Penanggung jawab</th><th>Status</th><th>Nilai selisih</th></tr></thead><tbody>'+rows+'</tbody></table>'
-      :'<div class="empty-state"><div class="empty-title">Belum ada cek stok di rentang ini</div></div>')+
-    '<div style="font-size:11px;color:var(--mist);margin-top:12px;">Tombol koreksi hanya muncul di cek terakhir, karena cek setelahnya memakai angka itu sebagai dasar.</div>';
-  drawPrices();
+      :'<div class="empty-state"><div class="empty-title">Belum ada cek stok di periode ini</div></div>')+
+    '<div style="font-size:11px;color:var(--mist);margin-top:12px;">Penanggung jawab: Buka Pagi & Pergantian = barista shift 1, Closing = barista shift 2. Tombol koreksi hanya muncul di cek terakhir, karena cek setelahnya memakai angka itu sebagai dasar.</div>';
 }
 async function fixLine(d){
   const v=prompt('Angka fisik yang benar untuk '+d.i+' ('+d.u+'). Sekarang tercatat '+d.v+'.',d.v);
@@ -1181,38 +1252,44 @@ async function fixLine(d){
   await loadAllData();loadSelisih();
 }
 function exportSelisih(){
-  const rs=_sel.rows.filter(r=>r.status==='ok'||r.status==='terlewat');
-  if(!rs.length)return toast('Tidak ada data','wrn');
+  const rs=selRows(),range=_sel.range;
+  if(!range||!rs.length)return toast('Tidak ada data di periode ini','wrn');
   if(typeof XLSX==='undefined')return toast('Gagal memuat modul xlsx','err');
+  const bar=document.getElementById('sl-bar').value;
   const st={ok:'Tersimpan',terlewat:'TERLEWAT'};
-  const s1=[['Tanggal','Cek','Status','Jam submit','Penanggung jawab','Barista shift 1','Barista shift 2','Bahan merah','Total selisih (Rp)']];
-  const s2=[['Tanggal','Cek','Penanggung jawab','Bahan','Satuan','Stok sistem','Stok fisik','Selisih','Selisih %','Merah','Harga/satuan','Nilai selisih (Rp)','Pemakaian resep','Pemakaian aktual','Restock masuk','Botol segel','Berat kotor (gr)','Catatan']];
+  const info=[['Laporan Selisih Stok · Nirmala Coffee'],['Periode',fmtTgl(range.from)+(range.to!==range.from?' – '+fmtTgl(range.to):'')+(range.capped?' (s/d hari ini)':'')],
+    ['Jenis',range.desc],['Barista',bar||'Semua barista'],['Dibuat',today()],[]];
+  const s1=[...info,['Tanggal','Shift','Cek','Status','Jam submit','Penanggung jawab','Barista shift 1','Barista shift 2','Bahan merah','Total selisih (Rp)']];
+  const s2=[['Tanggal','Shift','Cek','Penanggung jawab','Bahan','Satuan','Stok sistem','Stok fisik','Selisih','Selisih %','Merah','Harga/satuan','Nilai selisih (Rp)','Pemakaian resep','Pemakaian aktual','Restock masuk','Botol segel','Berat kotor (gr)','Catatan']];
   const byIng={},byBar={};
   rs.forEach(r=>{
     const who=respName(r)||'(tidak ada data clock in)';
     const ls=r.lines||[];
-    s1.push([r.work_date,r.label,st[r.status],r.submitted_at||'',who,r.shift1||'',r.shift2||'',ls.filter(l=>l.flagged).length,r.status==='ok'?+r.total_variance_rp:'']);
-    const b=byBar[who]||(byBar[who]={cek:0,miss:0,rp:0});
-    if(r.status==='ok'){b.cek++;b.rp+=+r.total_variance_rp||0;}else b.miss++;
+    s1.push([r.work_date,r.shift,r.label,st[r.status],r.submitted_at||'',who,r.shift1||'',r.shift2||'',ls.filter(l=>l.flagged).length,r.status==='ok'?+r.total_variance_rp:'']);
+    const b=byBar[who]||(byBar[who]={cek:0,miss:0,rp:0,red:0});
+    if(r.status==='ok'){b.cek++;b.rp+=+r.total_variance_rp||0;b.red+=ls.filter(l=>l.flagged).length;}else b.miss++;
     ls.forEach(l=>{
-      s2.push([r.work_date,r.label,who,l.ingredient,l.unit,+l.system_qty,+l.physical_qty,+l.variance_qty,+l.variance_pct,l.flagged?'YA':'',+l.unit_price,+l.variance_rp,
+      s2.push([r.work_date,r.shift,r.label,who,l.ingredient,l.unit,+l.system_qty,+l.physical_qty,+l.variance_qty,+l.variance_pct,l.flagged?'YA':'',+l.unit_price,+l.variance_rp,
         l.usage_theoretical==null?'':+l.usage_theoretical,l.usage_actual==null?'':+l.usage_actual,+l.restock_in||0,
         l.sealed_count==null?'':+l.sealed_count,l.gross_weight==null?'':+l.gross_weight,l.reason||'']);
       const g=byIng[l.ingredient]||(byIng[l.ingredient]={unit:l.unit,theo:0,act:0,rp:0});
       g.theo+=+(l.usage_theoretical||0);g.act+=+(l.usage_actual||0);g.rp+=+l.variance_rp||0;
     });
   });
+  const total=rs.reduce((s,r)=>s+(r.status==='ok'?(+r.total_variance_rp||0):0),0);
+  s1.push([],['','','','','','','','','TOTAL',total]);
   const s3=[['Bahan','Satuan','Pemakaian resep','Pemakaian aktual','Selisih pemakaian','Total selisih (Rp)']];
   Object.entries(byIng).forEach(([k,v])=>s3.push([k,v.unit,+v.theo.toFixed(2),+v.act.toFixed(2),+(v.act-v.theo).toFixed(2),v.rp]));
-  const s4=[['Penanggung jawab','Cek tersimpan','Cek terlewat','Total selisih (Rp)']];
-  Object.entries(byBar).forEach(([k,v])=>s4.push([k,v.cek,v.miss,v.rp]));
+  const s4=[['Penanggung jawab','Cek tersimpan','Cek terlewat','Bahan merah','Total selisih (Rp)']];
+  Object.entries(byBar).sort((a,b)=>b[1].rp-a[1].rp).forEach(([k,v])=>s4.push([k,v.cek,v.miss,v.red,v.rp]));
   const wb=XLSX.utils.book_new();
   const add=(name,aoa,w)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,name);};
-  add('Ringkasan Cek',s1,[12,17,11,10,20,16,16,11,16]);
-  add('Detail Bahan',s2,[12,17,20,16,7,11,11,10,9,7,11,15,14,14,12,10,13,30]);
+  add('Ringkasan Cek',s1,[12,7,17,11,10,20,16,16,11,16]);
+  add('Detail Bahan',s2,[12,7,17,20,16,7,11,11,10,9,7,11,15,14,14,12,10,13,30]);
   add('Per Bahan',s3,[18,8,15,15,16,16]);
-  add('Per Barista',s4,[22,14,13,16]);
-  XLSX.writeFile(wb,'nirmala-selisih-'+document.getElementById('sl-a').value+'_sd_'+document.getElementById('sl-b').value+'.xlsx');
+  add('Per Barista',s4,[22,14,13,12,16]);
+  const slug=bar?'-'+bar.toLowerCase().replace(/[^\w]+/g,'-'):'';
+  XLSX.writeFile(wb,'nirmala-selisih-'+range.label+slug+'.xlsx');
   toast('Excel berhasil diexport','ok');
 }
 
@@ -1223,7 +1300,8 @@ async function drawPrices(){
   const inp=(pre,x,val,ph,w)=>'<input class="form-input" style="margin:0;padding:8px;width:'+(w||90)+'px;" id="'+pre+'-'+cid(x.name)+'" type="number" step="any" min="0" value="'+(val==null?'':esc(val))+'" placeholder="'+ph+'">';
   const rows=(i.data||[]).map(x=>'<tr'+(x.active?'':' style="opacity:.5;"')+'><td><div class="item-name">'+esc(x.name)+'</div><div class="item-unit">'+esc(x.unit)+'</div></td>'+
     '<td>'+(p[x.name]!=null?fmtRp(p[x.name])+'/'+esc(x.unit):'<span style="color:var(--danger);">belum ada</span>')+
-      '<div style="display:flex;gap:4px;margin-top:6px;">'+inp('pp',x,null,'Rp kemasan',100)+inp('ps',x,null,'Isi',70)+'</div></td>'+
+      '<div style="display:flex;gap:4px;margin-top:6px;" data-n="'+esc(x.name)+'" data-u="'+esc(x.unit)+'" oninput="pricePreview(this)">'+inp('pp',x,null,'Harga Rp',100)+inp('ps',x,null,'Isi '+esc(x.unit),80)+'</div>'+
+      '<div class="item-unit" id="pv-'+cid(x.name)+'" style="margin-top:4px;"></div></td>'+
     '<td>'+inp('rop',x,x.rop,'ROP',80)+'</td>'+
     '<td><div style="display:flex;gap:4px;">'+inp('tare',x,x.tare_g||'','Kosong',90)+inp('full',x,x.full_gross_g,'Penuh',90)+inp('cont',x,x.full_content,'Isi',80)+'</div></td>'+
     '<td style="text-align:center;"><input type="checkbox" id="act-'+cid(x.name)+'"'+(x.active?' checked':'')+'></td>'+
@@ -1234,6 +1312,11 @@ async function drawPrices(){
     'Contoh Mix Berry: kosong 300, penuh 1.275, isi 750 ml. Kalau Kosong dibiarkan 0, bahan ditimbang/dihitung langsung.</div>'+
     '<table class="data-table"><thead><tr><th>Bahan</th><th>Harga/satuan · ubah harga</th><th>ROP</th><th>Botol: kosong · penuh · isi</th><th>Aktif</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;"><input class="form-input" id="nb-n" placeholder="Bahan baru" style="margin:0;max-width:220px;"><input class="form-input" id="nb-u" placeholder="Satuan (gr/ml/pcs)" style="margin:0;max-width:180px;"><button class="btn-sm" onclick="addIngredient()">Tambah</button></div>';}
+function pricePreview(box){
+  const n=box.dataset.n,u=box.dataset.u,pp=document.getElementById('pp-'+cid(n)).value,ps=document.getElementById('ps-'+cid(n)).value;
+  const el=document.getElementById('pv-'+cid(n));
+  el.innerHTML=(+pp>0&&+ps>0)?'→ harga baru <strong>'+fmtRp(Math.round(+pp/+ps*100)/100)+'/'+esc(u)+'</strong>, berlaku mulai hari ini':'';
+}
 async function saveIngredient(n){
   const v=k=>document.getElementById(k+'-'+cid(n)).value;
   const numOrNull=s=>s===''?null:+s;
@@ -1244,9 +1327,13 @@ async function saveIngredient(n){
   if(error)return toast('Gagal: '+error.message,'err');
   const pp=v('pp'),ps=v('ps');
   if(pp!==''||ps!==''){
-    if(!(+pp>=0)||!(+ps>0)){toast('Pengaturan tersimpan, tapi harga butuh Rp kemasan & isi kemasan','wrn');}
+    if(!(+pp>=0)||!(+ps>0)){toast('Pengaturan tersimpan, tapi harga butuh harga kemasan & isi kemasan','wrn');}
     else{
-      const r=await sb.from('nc_ingredient_price').insert({ingredient:n,pack_price:+pp,pack_size:+ps});
+      // 1 harga per bahan per hari: kalau hari ini sudah diubah, yang lama diganti
+      const t=today();
+      const d=await sb.from('nc_ingredient_price').delete().eq('ingredient',n).eq('effective_from',t);
+      if(d.error)return toast('Gagal simpan harga: '+d.error.message,'err');
+      const r=await sb.from('nc_ingredient_price').insert({ingredient:n,pack_price:+pp,pack_size:+ps,effective_from:t});
       if(r.error)return toast('Gagal simpan harga: '+r.error.message,'err');
     }
   }
