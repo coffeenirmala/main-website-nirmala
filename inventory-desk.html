@@ -125,6 +125,8 @@ body{font-family:'Libre Franklin',sans-serif;background:var(--cream);color:var(-
 .btn-full.danger{background:var(--danger);}
 .btn-full.danger:hover{background:#7f1d1d;}
 
+.btn-full:disabled{opacity:.4;cursor:not-allowed;}
+
 /* ── ALERTS ── */
 .alert-strip{display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-radius:4px;margin-bottom:20px;border-left:3px solid;}
 .alert-danger{background:rgba(153,27,27,0.06);border-color:var(--danger);}
@@ -418,8 +420,8 @@ async function setupApp(){
   document.getElementById('pill-label').textContent=role==='owner'?'Owner':'Barista';
   document.getElementById('role-pill').className='role-pill'+(role==='owner'?' owner-pill':'');
   const tabs=role==='barista'
-    ?[['input','Input Stok'],['restock','Restock'],['stok','Lihat Stok']]
-    :[['dashboard','Dashboard'],['inventory','Inventory'],['forecast','Forecast']];
+    ?[['input','Input Stok'],['restock','Restock'],['stok','Lihat Stok'],['cek','Cek Stok']]
+    :[['dashboard','Dashboard'],['inventory','Inventory'],['forecast','Forecast'],['selisih','Selisih']];
   const startTab=tabs[0][0];
   document.getElementById('nav-tabs').innerHTML=tabs.map(([id,label])=>
     '<button class="nav-link'+(id===startTab?' active':'')+'" onclick="switchTab(\''+id+'\')">'+label+'</button>'
@@ -437,7 +439,8 @@ function switchTab(newTab){
   document.querySelectorAll('.nav-link').forEach(b=>{
     b.classList.toggle('active',b.textContent.trim()===
       {input:'Input Stok',restock:'Restock',stok:'Lihat Stok',
-       dashboard:'Dashboard',inventory:'Inventory',forecast:'Forecast'}[newTab]);
+       dashboard:'Dashboard',inventory:'Inventory',forecast:'Forecast',
+       cek:'Cek Stok',selisih:'Selisih'}[newTab]);
   });
   render();
 }
@@ -445,7 +448,8 @@ function render(){
   const el=document.getElementById('main-content');
   const map={
     input:renderInput, restock:renderRestock, stok:renderStok,
-    dashboard:renderDashboard, inventory:renderInventory, forecast:renderForecast
+    dashboard:renderDashboard, inventory:renderInventory, forecast:renderForecast,
+    cek:renderCek, selisih:renderSelisih
   };
   if(map[tab])el.innerHTML=map[tab]();
 }
@@ -476,7 +480,7 @@ function stockBar(name){
   const color=s==='danger'?'var(--danger)':s==='warn'?'var(--warn)':'var(--green)';
   return '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+color+';"></div></div>';
 }
-function today(){return new Date().toISOString().split('T')[0];}
+function today(){return new Date(Date.now()+7*36e5).toISOString().split('T')[0];} // tanggal WIB
 function fmt(n){return n.toLocaleString('id-ID');}
 function fmtNum(n){return n%1===0?n:n.toFixed(1);}
 
@@ -1054,6 +1058,137 @@ function doExport(){
   toast('Laporan .xlsx berhasil diexport','ok');
 }
 
+// ══ CEK STOK AKTUAL (3 titik cek) + SELISIH & HARGA (owner) ══
+const CEK_TYPES={open:'Buka Pagi',handover:'Pergantian Shift',close:'Closing'};
+let _cek={type:'open',ing:[],staff:[]};
+const cid=n=>'ck-'+n.replace(/\s+/g,'_');
+
+// ── BARISTA: CEK STOK ──
+function renderCek(){setTimeout(loadCek,0);
+  return '<div class="page-header"><div class="page-title">Cek Stok.</div><div class="page-subtitle">Hitung fisik semua bahan, isi apa adanya</div></div><div id="cek-body">Memuat…</div>';}
+async function loadCek(){
+  const [i,a,v]=await Promise.all([
+    sb.from('nc_ingredient').select('*').eq('active',true).order('name'),
+    sb.from('attendance').select('employee_name,shift').eq('work_date',today()).not('clock_in','is',null).is('clock_out',null),
+    sb.from('nc_inventory').select('*')]);
+  _inv=_inv||{};(v.data||[]).forEach(r=>_inv[r.name]=parseFloat(r.stock)||0);
+  _cek.ing=i.data||[];_cek.staff=a.data||[];drawCek();}
+function cekWho(t){const s=_cek.staff.find(x=>x.shift===(t==='close'?2:1));return s?s.employee_name:null;}
+function drawCek(){
+  const body=document.getElementById('cek-body');if(!body)return;
+  const t=_cek.type,who=cekWho(t),need=t==='close'?'shift 2':'shift 1';
+  const tabs=Object.entries(CEK_TYPES).map(([k,l])=>'<button class="btn-ghost" style="flex:1;'+(k===t?'background:var(--ink);color:var(--paper);':'')+'" onclick="_cek.type=\''+k+'\';drawCek()">'+l+'</button>').join('');
+  const head=who?'<div class="alert-strip alert-warn"><div class="alert-label">Dicatat atas nama '+who+' ('+need+')</div></div>'
+    :'<div class="alert-strip alert-danger"><div><div class="alert-label" style="color:var(--danger);">Belum ada barista '+need+' yang clock in</div><div class="alert-body">Clock in dulu di Absensi, lalu buka ulang tab ini.</div></div></div>';
+  const cards=_cek.ing.map(i=>'<div class="input-card"><div class="input-card-name">'+i.name+'</div><div class="input-row">'+
+    '<input type="number" class="qty-input" id="'+cid(i.name)+'" placeholder="Sisa" min="0" step="any" inputmode="decimal"><span class="unit-label">'+i.unit+'</span></div>'+
+    '<input type="text" class="form-input" id="'+cid(i.name)+'-r" placeholder="Alasan selisih (opsional)" style="margin:10px 0 0;padding:8px 12px;font-size:13px;"></div>').join('');
+  body.innerHTML='<div style="display:flex;gap:8px;margin-bottom:20px;">'+tabs+'</div>'+head+
+    '<div class="input-grid">'+cards+'</div><button class="btn-full" style="margin-top:24px;" '+(who?'':'disabled ')+'onclick="submitCek()">Simpan Cek Stok</button>';}
+async function priceMap(date){
+  const {data}=await sb.from('nc_ingredient_price').select('ingredient,unit_price,effective_from').lte('effective_from',date).order('effective_from',{ascending:false});
+  const m={};(data||[]).forEach(r=>{if(!(r.ingredient in m))m[r.ingredient]=+r.unit_price;});return m;}
+async function submitCek(){
+  const t=_cek.type,who=cekWho(t);
+  if(!who){toast('Belum ada barista yang clock in','err');return;}
+  const vals={};
+  for(const i of _cek.ing){const v=document.getElementById(cid(i.name)).value;
+    if(v===''||isNaN(v)||+v<0){toast('Isi sisa '+i.name,'wrn');return;}vals[i.name]=+v;}
+  const btn=document.querySelector('#cek-body .btn-full');btn.disabled=true;
+  try{
+    const date=today(),prices=await priceMap(date),inv=getInv();
+    const {data:pc}=await sb.from('nc_stock_check').select('id,created_at').order('created_at',{ascending:false}).limit(1);
+    let prev={},prevMs=0;
+    if(pc&&pc[0]){prevMs=new Date(pc[0].created_at).getTime();
+      const {data:pl}=await sb.from('nc_stock_check_line').select('ingredient,physical_qty').eq('check_id',pc[0].id);
+      (pl||[]).forEach(l=>prev[l.ingredient]=+l.physical_qty);}
+    const {data:rs}=await sb.from('nc_restock').select('item,qty').gt('ts',prevMs);
+    const rin={};(rs||[]).forEach(r=>rin[r.item]=(rin[r.item]||0)+(+r.qty||0));
+    const lines=_cek.ing.map(i=>{
+      const sys=inv[i.name]??0,phy=vals[i.name],v=sys-phy;
+      const pct=sys>0?Math.abs(v)/sys*100:(phy>0?100:0),up=prices[i.name]??0,p=prev[i.name];
+      return {ingredient:i.name,unit:i.unit,system_qty:sys,physical_qty:phy,variance_qty:v,variance_pct:+pct.toFixed(2),
+        flagged:pct>5,reason:document.getElementById(cid(i.name)+'-r').value.trim()||null,unit_price:up,variance_rp:+(v*up).toFixed(0),
+        prev_physical:p??null,restock_in:rin[i.name]||0,usage_actual:p==null?null:p+(rin[i.name]||0)-phy};});
+    const total=lines.reduce((s,l)=>s+l.variance_rp,0);
+    const shift=_cek.staff.find(x=>x.employee_name===who).shift;
+    const {data:h,error:e1}=await sb.from('nc_stock_check').insert({check_type:t,work_date:date,shift,barista:who,total_variance_rp:total}).select().single();
+    if(e1)throw e1;
+    const {error:e2}=await sb.from('nc_stock_check_line').insert(lines.map(l=>({...l,check_id:h.id})));
+    if(e2)throw e2;
+    for(const l of lines)await saveStock(l.ingredient,l.physical_qty);
+    checkInventoryROP();
+    toast('Tersimpan. '+lines.filter(l=>l.flagged).length+' bahan selisih >5%','ok');
+    document.querySelectorAll('#cek-body .qty-input,#cek-body .form-input').forEach(e=>e.value='');btn.disabled=false;
+  }catch(e){toast('Gagal: '+(e.message||e),'err');btn.disabled=false;}
+}
+
+// ── OWNER: SELISIH & HARGA ──
+function renderSelisih(){setTimeout(loadSelisih,0);const t=today();
+  return '<div class="page-header"><div class="page-title">Selisih.</div><div class="page-subtitle">Pemakaian aktual vs catatan sistem, dalam rupiah</div></div>'+
+  '<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:24px;">'+
+  '<div><label class="form-label">Dari</label><input type="date" class="form-input" id="sl-a" value="'+t+'" style="margin:0;"></div>'+
+  '<div><label class="form-label">Sampai</label><input type="date" class="form-input" id="sl-b" value="'+t+'" style="margin:0;"></div>'+
+  '<button class="btn-sm" onclick="loadSelisih()">Tampilkan</button><button class="btn-ghost" onclick="exportSelisih()">⬇ Excel</button></div>'+
+  '<div id="sl-body">Memuat…</div><div id="sl-price" style="margin-top:48px;"></div>';}
+async function fetchChecks(){
+  const a=document.getElementById('sl-a').value,b=document.getElementById('sl-b').value;
+  const {data}=await sb.from('nc_stock_check').select('*,nc_stock_check_line(*)').gte('work_date',a).lte('work_date',b).order('created_at');
+  return data||[];}
+async function loadSelisih(){
+  if(!document.getElementById('sl-body'))return;
+  const cs=await fetchChecks(),total=cs.reduce((s,c)=>s+(+c.total_variance_rp),0);
+  const rows=cs.map(c=>{const ls=c.nc_stock_check_line||[],f=ls.filter(l=>l.flagged);
+    return '<tr><td><div class="item-name">'+CEK_TYPES[c.check_type]+'</div><div class="item-unit">'+c.work_date+' · '+c.barista+'</div></td>'+
+    '<td>'+ls.length+' bahan</td><td style="color:'+(f.length?'var(--danger)':'var(--green)')+';font-weight:600;">'+f.length+' merah</td>'+
+    '<td style="font-weight:700;">'+fmtRp(+c.total_variance_rp)+'</td></tr>'+
+    f.map(l=>'<tr style="background:rgba(153,27,27,0.05);"><td style="padding-left:16px;font-size:13px;">'+l.ingredient+'</td><td colspan="2" style="font-size:12px;color:var(--danger);">sistem '+fmtNum(+l.system_qty)+' · fisik '+fmtNum(+l.physical_qty)+' '+(l.unit||'')+' ('+l.variance_pct+'%)'+(l.reason?' · '+l.reason:'')+'</td><td style="font-size:13px;">'+fmtRp(+l.variance_rp)+'</td></tr>').join('');}).join('');
+  const el=document.getElementById('sl-body');if(!el)return;
+  el.innerHTML='<div class="stat-strip" style="grid-template-columns:1fr 1fr;"><div class="stat-cell"><div class="stat-label">Total selisih</div><div class="stat-value '+(total>0?'danger':'green')+'" style="font-size:24px;">'+fmtRp(total)+'</div><div class="stat-note">positif = bahan kurang/hilang</div></div><div class="stat-cell"><div class="stat-label">Jumlah cek</div><div class="stat-value">'+cs.length+'</div></div></div>'+
+    (rows?'<table class="data-table"><thead><tr><th>Cek</th><th>Item</th><th>Tanda</th><th>Nilai</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty-state"><div class="empty-title">Belum ada cek stok</div></div>');
+  drawPrices();}
+async function drawPrices(){
+  const [i,p]=await Promise.all([sb.from('nc_ingredient').select('*').order('name'),priceMap(today())]);
+  const el=document.getElementById('sl-price');if(!el)return;
+  const rows=(i.data||[]).map(x=>'<tr><td><div class="item-name">'+x.name+'</div><div class="item-unit">'+x.unit+'</div></td>'+
+    '<td><input class="form-input" style="margin:0;padding:8px;" id="pp-'+cid(x.name)+'" type="number" placeholder="Harga kemasan (Rp)"></td>'+
+    '<td><input class="form-input" style="margin:0;padding:8px;" id="ps-'+cid(x.name)+'" type="number" placeholder="Isi ('+x.unit+')"></td>'+
+    '<td>'+(p[x.name]!=null?fmtRp(p[x.name])+'/'+x.unit:'<span style="color:var(--danger);">belum ada</span>')+'</td>'+
+    '<td><button class="btn-sm" onclick="savePrice(\''+x.name+'\')">Simpan</button></td></tr>').join('');
+  el.innerHTML='<div class="page-title" style="font-size:24px;margin-bottom:12px;">Harga bahan</div>'+
+    '<table class="data-table"><thead><tr><th>Bahan</th><th>Harga kemasan</th><th>Isi kemasan</th><th>Harga/satuan</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="display:flex;gap:8px;margin-top:20px;"><input class="form-input" id="nb-n" placeholder="Bahan baru" style="margin:0;"><input class="form-input" id="nb-u" placeholder="Satuan (gr/ml/pcs)" style="margin:0;"><button class="btn-sm" onclick="addIngredient()">Tambah</button></div>';}
+async function savePrice(n){
+  const pp=+document.getElementById('pp-'+cid(n)).value,ps=+document.getElementById('ps-'+cid(n)).value;
+  if(!(pp>=0)||!(ps>0)){toast('Isi harga & isi kemasan','wrn');return;}
+  const {error}=await sb.from('nc_ingredient_price').insert({ingredient:n,pack_price:pp,pack_size:ps});
+  if(error)return toast('Gagal: '+error.message,'err');toast('Harga '+n+' disimpan, berlaku mulai hari ini','ok');drawPrices();}
+async function addIngredient(){
+  const n=document.getElementById('nb-n').value.trim(),u=document.getElementById('nb-u').value.trim();
+  if(!n||!u){toast('Isi nama & satuan','wrn');return;}
+  const {error}=await sb.from('nc_ingredient').insert({name:n,unit:u});
+  if(error)return toast('Gagal: '+error.message,'err');
+  await saveStock(n,0);toast(n+' ditambahkan','ok');drawPrices();}
+async function exportSelisih(){
+  const cs=await fetchChecks();if(!cs.length)return toast('Tidak ada data','wrn');
+  if(typeof XLSX==='undefined')return toast('Gagal memuat modul xlsx','err');
+  const d=[['Tanggal','Cek','Barista','Bahan','Satuan','Stok sistem','Stok fisik','Selisih','Selisih %','Tanda','Harga/satuan','Nilai selisih (Rp)','Pemakaian aktual','Alasan']];
+  const byDay={},byIng={};
+  cs.forEach(c=>(c.nc_stock_check_line||[]).forEach(l=>{
+    d.push([c.work_date,CEK_TYPES[c.check_type],c.barista,l.ingredient,l.unit,+l.system_qty,+l.physical_qty,+l.variance_qty,+l.variance_pct,l.flagged?'*':'',+l.unit_price,+l.variance_rp,l.usage_actual==null?'':+l.usage_actual,l.reason||'']);
+    const k=c.work_date+'|'+CEK_TYPES[c.check_type]+'|'+c.barista;byDay[k]=(byDay[k]||0)+(+l.variance_rp);
+    byIng[l.ingredient]=byIng[l.ingredient]||{rp:0,u:0,unit:l.unit};byIng[l.ingredient].rp+=+l.variance_rp;byIng[l.ingredient].u+=+(l.usage_actual||0);}));
+  const s=[['Tanggal','Cek','Barista','Total selisih (Rp)']];
+  Object.entries(byDay).forEach(([k,v])=>s.push([...k.split('|'),v]));
+  s.push([],['Bahan','Pemakaian aktual','Satuan','Total selisih (Rp)']);
+  Object.entries(byIng).forEach(([k,v])=>s.push([k,v.u,v.unit,v.rp]));
+  s.push([],['TOTAL','','',Object.values(byDay).reduce((a,b)=>a+b,0)]);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d),'Detail Cek Stok');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(s),'Ringkasan Selisih');
+  XLSX.writeFile(wb,'nirmala-selisih-'+document.getElementById('sl-a').value+'_sd_'+document.getElementById('sl-b').value+'.xlsx');
+  toast('Excel berhasil diexport','ok');}
+
 // ══ MODAL ══
 function showModal(){document.getElementById('modal-overlay').classList.remove('hidden');}
 function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');}
@@ -1070,8 +1205,6 @@ function toast(msg,type='ok'){
 }
 
 // ══ EMAIL NOTIFIKASI ROP ══
-const BREVO_API_KEY = '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';
-
 const EMAIL_SENDER = {
   name:  'Nirmala Coffee — Sistem Inventaris',
   email: 'coffeenirmala@gmail.com',
