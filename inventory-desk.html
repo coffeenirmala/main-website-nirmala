@@ -1040,7 +1040,7 @@ function doExport(){
 // Logika utama ada di database (nc_stock_check_status, nc_submit_stock_check,
 // nc_stock_check_report, nc_fix_stock_line). Halaman ini hanya menampilkan & mengirim angka.
 const CEK_TYPES={open:'Buka Pagi',handover:'Pergantian Shift',close:'Closing'};
-const CEK_HOURS='Buka Pagi 07:00–09:00 · Pergantian Shift 14:30–15:30 · Closing 22:00–23:30';
+const CEK_HOURS='Buka Pagi 07:00–09:00 · Pergantian Shift 14:30–16:00 · Closing 22:00–23:30';
 let _cek={st:null};
 const cid=n=>'ck-'+String(n).replace(/[^\w]+/g,'_');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
