@@ -239,6 +239,24 @@ export default async function handler(req, res) {
       }
     }
 
+    // [REVISI 4] Pecah racikan (mis. Creamer cair -> Susu + Creamer) dan buang bahan non-stok
+    // (daun mint, kemasan) lewat fungsi database nc_expand_usage. Kalau fungsi belum ada / gagal,
+    // tetap pakai cara lama supaya penjualan tidak pernah tertahan.
+    try {
+      const rx = await fetch(`${SUPABASE_URL}/rest/v1/rpc/nc_expand_usage`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_usage: deduction }),
+      });
+      if (rx.ok) {
+        const expanded = await rx.json();
+        if (expanded && typeof expanded === 'object') {
+          for (const k of Object.keys(deduction)) delete deduction[k];
+          for (const [k, v] of Object.entries(expanded)) deduction[k] = Number(v);
+        }
+      }
+    } catch (e) { /* pakai deduction apa adanya */ }
+
     const ingredientNames = Object.keys(deduction); // dipakai pencatatan bahan (5b) & pengurangan stok (4)
 
     // Helper: harga 1 baris keranjang (menu biasa pakai nc_menu.price, bundle pakai bundle_price promo)
@@ -281,6 +299,13 @@ export default async function handler(req, res) {
     // barista & price: null eksplisit supaya semua baris dalam satu insert punya kolom yang sama.
     const unitMap = {};
     for (const r of recipeRows) unitMap[r.ingredient_name] = r.unit;
+    const missingUnit = ingredientNames.filter((n) => !unitMap[n]);
+    if (missingUnit.length) {
+      try {
+        const rows = await supabase('GET', `nc_ingredient?select=name,unit&name=in.(${missingUnit.map(encodeURIComponent).join(',')})`);
+        for (const r of rows) unitMap[r.name] = r.unit;
+      } catch (e) { /* satuan kosong tidak masalah */ }
+    }
     const ingredientSalesPayload = ingredientNames.map((ing) => ({
       date: dateStr,
       ts,
