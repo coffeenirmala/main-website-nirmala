@@ -158,7 +158,7 @@ table.report-table td.neg{color:var(--ok)}
     <div class="tabs">
       <button class="tab-btn active" data-tab="kasir" onclick="switchTab('kasir')">Kasir</button>
       <button class="tab-btn" data-tab="laporan" onclick="switchTab('laporan')">Laporan</button>
-      <button class="tab-btn" data-tab="kelola" onclick="switchTab('kelola')">Kelola Menu</button>
+      <button class="tab-btn" data-tab="kelola" onclick="switchTab('kelola')">Kelola Promo</button>
     </div>
 
     <div class="tab-panel active" id="tab-kasir">
@@ -232,26 +232,8 @@ table.report-table td.neg{color:var(--ok)}
 
     <div class="tab-panel" id="tab-kelola">
       <div class="form-card">
-        <strong style="font-size:13px">Tambah / Update Menu</strong>
-        <div class="form-row" style="margin-top:8px">
-          <input type="text" id="new-menu-name" placeholder="Nama menu (mis. Cappuccino)" />
-          <select id="new-menu-category">
-            <option value="Coffee">Coffee</option><option value="Non Coffee">Non Coffee</option><option value="Mocktail">Mocktail</option>
-            <option value="Makanan">Makanan</option><option value="Snack">Snack</option><option value="Lainnya">Lainnya</option>
-          </select>
-          <input type="number" id="new-menu-price" placeholder="Harga jual (Rp)" />
-          <button class="btn-add" onclick="addMenu()">Simpan</button>
-        </div>
-      </div>
-      <div class="form-card">
-        <strong style="font-size:13px">Tambah Resep (bahan baku per menu)</strong>
-        <div class="form-row" style="margin-top:8px">
-          <select id="recipe-menu-select"></select>
-          <select id="recipe-ingredient-select"></select>
-          <input type="number" id="recipe-qty" placeholder="Qty terpakai" step="any" />
-          <input type="text" id="recipe-unit" placeholder="Satuan (gr/ml/pcs)" />
-          <button class="btn-add" onclick="addRecipe()">Tambah</button>
-        </div>
+        <strong style="font-size:13px">Menu, harga &amp; resep</strong>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.6">Sekarang diatur owner di <b>Inventory → Menu &amp; Resep</b> (HPP &amp; margin dihitung otomatis). Perubahan muncul di kasir setelah halaman di-refresh.</div>
       </div>
       <div class="form-card">
         <strong style="font-size:13px">Tambah Promo</strong>
@@ -285,7 +267,6 @@ table.report-table td.neg{color:var(--ok)}
         <div class="form-row"><button class="btn-add" onclick="addPromo()">Simpan Promo</button></div>
       </div>
       <div id="promo-manage-list"><div class="empty">Memuat daftar promo...</div></div>
-      <div id="menu-manage-list"><div class="empty">Memuat daftar menu...</div></div>
     </div>
   </div>
 </div>
@@ -294,8 +275,12 @@ table.report-table td.neg{color:var(--ok)}
 <script>
 const CORRECT_PIN = '1234';
 const PUNCHES_FOR_FREE = 8;
-// Kalau nambah kategori, update juga <option> di #new-menu-category.
-const MENU_CATEGORIES = ['Coffee', 'Non Coffee', 'Mocktail', 'Makanan', 'Snack', 'Lainnya'];
+// Urutan kategori di kasir. Kategori lain yang ada di data menu otomatis ditambahkan di belakang.
+const MENU_CATEGORIES = ['Coffee · Black', 'Coffee · White', 'Coffee · Signature', 'Mocktail · Coffee', 'Mocktail · Non-Coffee', 'Non-Coffee', 'Makanan', 'Snack', 'Lainnya'];
+function menuCategories() {
+  const present = [...new Set(allMenu.map(m => m.category || 'Lainnya'))];
+  return [...MENU_CATEGORIES.filter(c => present.includes(c)), ...present.filter(c => !MENU_CATEGORIES.includes(c)).sort()];
+}
 let pin = '';
 let allMenu = [], allRecipes = [], allInventory = [], allMembers = [], allPromos = [];
 let cart = [];                 // { menu_name, price, qty }
@@ -424,7 +409,7 @@ const activePromos = () => allPromos.filter(p => promoStatus(p) === 'aktif');
 // ---------- Kasir: filter kategori & menu ----------
 function renderCategoryFilter() {
   const hasBundle = activePromos().some(p => p.type === 'bundle' || p.type === 'bundle_qty');
-  const chips = ['all', ...MENU_CATEGORIES, ...(hasBundle ? ['Promo Bundle'] : [])];
+  const chips = ['all', ...menuCategories(), ...(hasBundle ? ['Promo Bundle'] : [])];
   $('cat-filter-bar').innerHTML = chips.map(cat =>
     `<button class="cat-chip ${selectedCategory === cat ? 'active' : ''}" onclick="selectCategory('${cat}')">${cat === 'all' ? 'Semua' : cat}</button>`
   ).join('');
@@ -450,7 +435,9 @@ function renderMenu() {
 
   const box = $('menu-items-container');
   if (!filtered.length && !bundles.length) { box.innerHTML = '<div class="empty">Menu tidak ditemukan</div>'; return; }
-  box.innerHTML = Object.keys(grouped).map(cat => `
+  const order = [...menuCategories(), 'Promo Bundle'];
+  const cats = Object.keys(grouped).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  box.innerHTML = cats.map(cat => `
     <div class="category-label">${esc(cat)}</div>
     <div class="menu-items">
       ${grouped[cat].map(m => {
@@ -747,77 +734,7 @@ async function refreshMenuViews() {
   await loadMenuData();
   renderKelolaMenu(); renderPromoMenuPickers(); renderMenu();
 }
-async function addMenu() {
-  const name = $('new-menu-name').value.trim();
-  const category = $('new-menu-category').value || 'Lainnya';
-  const price = parseFloat($('new-menu-price').value);
-  if (!name || !price) { showToast('Nama & harga wajib diisi'); return; }
-  try {
-    await postMenu({ action: 'upsert_menu', name, category, price });
-    $('new-menu-name').value = ''; $('new-menu-price').value = '';
-    $('new-menu-category').selectedIndex = 0; // select tidak punya opsi kosong: jangan di-set ''
-    showToast('Menu tersimpan');
-    await refreshMenuViews();
-  } catch (e) { showToast('Gagal: ' + e.message); }
-}
-async function addRecipe() {
-  const menu_name = $('recipe-menu-select').value;
-  const ingredient_name = $('recipe-ingredient-select').value;
-  const qty_used = parseFloat($('recipe-qty').value);
-  const unit = $('recipe-unit').value.trim();
-  if (!menu_name || !ingredient_name || !qty_used) { showToast('Lengkapi semua field resep'); return; }
-  try {
-    await postMenu({ action: 'upsert_recipe', menu_name, ingredient_name, qty_used, unit });
-    $('recipe-qty').value = ''; $('recipe-unit').value = '';
-    showToast('Resep ditambahkan');
-    await loadMenuData(); renderKelolaMenu();
-  } catch (e) { showToast('Gagal: ' + e.message); }
-}
-async function deleteMenu(name) {
-  if (!confirm(`Hapus menu "${name}"? Resepnya juga akan terhapus.`)) return;
-  try { await postMenu({ action: 'delete_menu', name }); await refreshMenuViews(); }
-  catch (e) { showToast('Gagal: ' + e.message); }
-}
-async function deleteRecipe(id) {
-  try { await postMenu({ action: 'delete_recipe', id }); await loadMenuData(); renderKelolaMenu(); }
-  catch (e) { showToast('Gagal: ' + e.message); }
-}
-async function quickUpdateCategory(name, category, price) {
-  try {
-    await postMenu({ action: 'upsert_menu', name, category, price });
-    showToast(`Kategori "${name}" -> ${category}`);
-    await loadMenuData(); renderKelolaMenu(); renderMenu();
-  } catch (e) { showToast('Gagal update kategori: ' + e.message); }
-}
-async function renderKelolaMenu() {
-  await loadInventoryList();
-  $('recipe-menu-select').innerHTML = allMenu.map(m => `<option value="${esc(m.name)}">${esc(m.name)}</option>`).join('');
-  $('recipe-ingredient-select').innerHTML = allInventory.length
-    ? allInventory.map(i => `<option value="${esc(i.name)}">${esc(i.name)}</option>`).join('')
-    : '<option value="">(daftar bahan tidak termuat)</option>';
-  const box = $('menu-manage-list');
-  if (!allMenu.length) { box.innerHTML = '<div class="empty">Belum ada menu, tambahkan di atas.</div>'; return; }
-  box.innerHTML = allMenu.map(m => {
-    const recipes = allRecipes.filter(r => r.menu_name === m.name);
-    const needsFix = !MENU_CATEGORIES.includes(m.category);
-    const opts = MENU_CATEGORIES.map(c => `<option value="${c}" ${c === m.category ? 'selected' : ''}>${c}</option>`).join('');
-    return `
-      <div class="menu-manage-item ${needsFix ? 'needs-cat-fix' : ''}">
-        <div class="top">
-          <strong>${esc(m.name)}${needsFix ? ' ⚠️' : ''}</strong>
-          <span>${rp(m.price)}
-            <select class="quick-cat-select" onchange="quickUpdateCategory('${jsq(m.name)}', this.value, ${m.price})">
-              ${needsFix ? `<option value="" selected disabled>${esc(m.category || '(kosong)')}</option>` : ''}${opts}
-            </select>
-            <button class="small-btn" onclick="deleteMenu('${jsq(m.name)}')">hapus</button>
-          </span>
-        </div>
-        <div class="recipe-list">
-          ${recipes.length ? recipes.map(r => `${esc(r.ingredient_name)} (${r.qty_used}${esc(r.unit)}) <button class="small-btn" onclick="deleteRecipe(${r.id})">x</button>`).join(' · ') : 'Belum ada resep'}
-        </div>
-      </div>`;
-  }).join('');
-}
+async function renderKelolaMenu() { /* menu & resep pindah ke Inventory → Menu & Resep */ }
 
 // ---------- Kelola Promo ----------
 function togglePromoTypeFields() {
