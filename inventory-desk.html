@@ -343,7 +343,7 @@ async function loadAllData(){
     fetchAllRows('nc_restock','ts',false),
     fetchAllRows('nc_sales','ts',false),
     sb.from('nc_ingredient').select('*').eq('active',true).order('name'),
-    sb.from('nc_recipe').select('menu_name,ingredient_name,qty_used'),
+    sb.rpc('nc_recipes_expanded'),
     priceMap(today()),
   ]);
   _inv={};
@@ -351,12 +351,16 @@ async function loadAllData(){
   _restock=restock;
   _sales=sales;
   const num=v=>v==null||v===''?null:Number(v);
-  INVENTORY_DEF=(ingRes.data||[]).map(r=>({
+  INVENTORY_DEF=(ingRes.data||[]).filter(r=>!r.kind||r.kind==='stok').map(r=>({
     name:r.name, unit:r.unit, rop:Number(r.rop)||0, ropLabel:null,
     tare_g:Number(r.tare_g)||0, full_gross_g:num(r.full_gross_g), full_content:num(r.full_content),
   }));
+  // Resep per menu dalam bahan STOK (racikan sudah dipecah, mint/kemasan dibuang) untuk forecast.
+  // Kalau fungsi database belum ada, pakai tabel resep apa adanya.
+  let recRows=recRes.data;
+  if(recRes.error){const r=await sb.from('nc_recipe').select('menu_name,ingredient_name,qty_used');recRows=(r.data||[]).map(x=>({menu_name:x.menu_name,ingredient_name:x.ingredient_name,qty:x.qty_used}));}
   RECIPES={};
-  (recRes.data||[]).forEach(r=>{(RECIPES[r.menu_name]||(RECIPES[r.menu_name]={}))[r.ingredient_name]=Number(r.qty_used)||0;});
+  (recRows||[]).forEach(r=>{(RECIPES[r.menu_name]||(RECIPES[r.menu_name]={}))[r.ingredient_name]=Number(r.qty)||0;});
   UNIT_PRICES=prices;
   if(ingRes.error)toast('Gagal memuat daftar bahan: '+ingRes.error.message,'err');
 }
@@ -440,7 +444,7 @@ async function setupApp(){
   document.getElementById('role-pill').className='role-pill'+(role==='owner'?' owner-pill':'');
   const tabs=role==='barista'
     ?[['cek','Cek Stok'],['restock','Restock'],['stok','Lihat Stok']]
-    :[['dashboard','Dashboard'],['inventory','Inventory'],['forecast','Forecast'],['selisih','Selisih']];
+    :[['dashboard','Dashboard'],['inventory','Inventory'],['forecast','Forecast'],['selisih','Selisih'],['menu','Menu & Resep']];
   const startTab=tabs[0][0];
   document.getElementById('nav-tabs').innerHTML=tabs.map(([id,label])=>
     '<button class="nav-link'+(id===startTab?' active':'')+'" data-tab="'+id+'" onclick="switchTab(\''+id+'\')">'+label+'</button>'
@@ -463,7 +467,7 @@ function render(){
   const map={
     restock:renderRestock, stok:renderStok,
     dashboard:renderDashboard, inventory:renderInventory, forecast:renderForecast,
-    cek:renderCek, selisih:renderSelisih
+    cek:renderCek, selisih:renderSelisih, menu:renderMenuTab
   };
   if(map[tab])el.innerHTML=map[tab]();
 }
@@ -592,7 +596,9 @@ function renderDashboard(){
     return{name:item.name,unit:item.unit,val,stock,hargaSatuan};
   }).filter(r=>r.val>0).sort((a,b)=>b.val-a.val).slice(0,6);
 
+  setTimeout(loadDashMargin,0);
   return '<div class="page-header"><div class="page-title">Dashboard</div><div class="page-subtitle">'+new Date().toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'</div></div>'+
+    '<div id="dash-margin"></div>'+
     '<div class="stat-strip" id="owner-stat-strip" style="grid-template-columns:repeat(5,1fr);">'+
     '<div class="stat-cell"><div class="stat-label">Nilai Aset Stok</div>'+
       '<div class="stat-value green" style="font-size:20px;">'+fmtRp(assetVal)+'</div>'+
@@ -1044,6 +1050,9 @@ const densOf=i=>(i.full_gross_g>i.tare_g&&i.full_content>0)?(i.full_gross_g-i.ta
 const wadahQty=(i,sealed,gross)=>(sealed||0)*(i.full_content||0)+Math.max(0,(gross||0)-i.tare_g)/densOf(i);
 const waitName=n=>n?esc(n):'<span style="color:var(--warn);">menunggu clock in</span>';
 async function priceMap(date){
+  // harga per satuan termasuk sirup buatan sendiri (dihitung dari resep batch)
+  const r=await sb.rpc('nc_unit_costs',{p_date:date});
+  if(!r.error&&r.data){const m={};r.data.forEach(x=>{m[x.name]=+x.unit_price;});return m;}
   const {data}=await sb.from('nc_ingredient_price').select('ingredient,unit_price,effective_from').lte('effective_from',date).order('effective_from',{ascending:false});
   const m={};(data||[]).forEach(r=>{if(!(r.ingredient in m))m[r.ingredient]=+r.unit_price;});return m;}
 
@@ -1150,7 +1159,7 @@ function renderSelisih(){
     '<div><label class="form-label">Barista</label><select class="form-input" id="sl-bar" style="margin:0;min-width:190px;" onchange="drawSelisih()"><option value="">Semua barista</option></select></div>'+
     '<button class="btn-sm" onclick="loadSelisih()">Tampilkan</button><button class="btn-ghost" onclick="exportSelisih()">⬇ Excel</button></div>'+
   '<div id="sl-range" style="font-size:12px;color:var(--mist);margin-bottom:24px;"></div>'+
-  '<div id="sl-body">Memuat…</div><div id="sl-price" style="margin-top:48px;"></div>';}
+  '<div id="sl-body">Memuat…</div>';}
 function setSelMode(m){
   _selMode=m;
   document.querySelectorAll('.sel-mode').forEach(b=>{const on=b.id==='sm-'+m;b.style.background=on?'var(--ink)':'transparent';b.style.color=on?'var(--paper)':'var(--ink)';});
@@ -1218,7 +1227,6 @@ async function loadSelisih(){
   const names=[...new Set(_sel.rows.map(respName).filter(Boolean))].sort();
   sel.innerHTML='<option value="">Semua barista</option>'+names.map(n=>'<option'+(n===prev?' selected':'')+'>'+esc(n)+'</option>').join('');
   drawSelisih();
-  drawPrices();
 }
 function selRows(){
   const bar=(document.getElementById('sl-bar')||{}).value||'';
@@ -1312,38 +1320,124 @@ function exportSelisih(){
   toast('Excel berhasil diexport','ok');
 }
 
-// ── OWNER: PENGATURAN BAHAN (harga, ROP, botol, aktif) ──
-async function drawPrices(){
-  const [i,p]=await Promise.all([sb.from('nc_ingredient').select('*').order('name'),priceMap(today())]);
-  const el=document.getElementById('sl-price');if(!el)return;
-  const inp=(pre,x,val,ph,w)=>'<input class="form-input" style="margin:0;padding:8px;width:'+(w||90)+'px;" id="'+pre+'-'+cid(x.name)+'" type="number" step="any" min="0" value="'+(val==null?'':esc(val))+'" placeholder="'+ph+'">';
-  const rows=(i.data||[]).map(x=>'<tr'+(x.active?'':' style="opacity:.5;"')+'><td><div class="item-name">'+esc(x.name)+'</div><div class="item-unit">'+esc(x.unit)+'</div></td>'+
-    '<td>'+(p[x.name]!=null?fmtRp(p[x.name])+'/'+esc(x.unit):'<span style="color:var(--danger);">belum ada</span>')+
-      '<div style="display:flex;gap:4px;margin-top:6px;" data-n="'+esc(x.name)+'" data-u="'+esc(x.unit)+'" oninput="pricePreview(this)">'+inp('pp',x,null,'Harga Rp',100)+inp('ps',x,null,'Isi '+esc(x.unit),80)+'</div>'+
-      '<div class="item-unit" id="pv-'+cid(x.name)+'" style="margin-top:4px;"></div></td>'+
-    '<td>'+inp('rop',x,x.rop,'ROP',80)+'</td>'+
-    '<td><div style="display:flex;gap:4px;">'+inp('tare',x,x.tare_g||'','Kosong',90)+inp('full',x,x.full_gross_g,'Penuh',90)+inp('cont',x,x.full_content,'Isi',80)+'</div></td>'+
-    '<td style="text-align:center;"><input type="checkbox" id="act-'+cid(x.name)+'"'+(x.active?' checked':'')+'></td>'+
-    '<td><button class="btn-sm" data-n="'+esc(x.name)+'" onclick="saveIngredient(this.dataset.n)">Simpan</button></td></tr>').join('');
-  el.innerHTML='<div class="page-title" style="font-size:20px;margin-bottom:6px;">Pengaturan bahan</div>'+
-    '<div class="page-subtitle" style="margin-bottom:16px;">Semua halaman (stok, restock, forecast, cek stok, alert email) membaca dari sini.<br>'+
-    '<strong>Botol:</strong> isi hanya untuk bahan dalam botol kaca. Kosong gr = berat botol kosong, Penuh gr = berat 1 botol segel, Isi = isi bersih sesuai label. '+
-    'Contoh Mix Berry: kosong 300, penuh 1.275, isi 750 ml. Kalau Kosong dibiarkan 0, bahan ditimbang/dihitung langsung.</div>'+
-    '<table class="data-table"><thead><tr><th>Bahan</th><th>Harga/satuan · ubah harga</th><th>ROP</th><th>Botol: kosong · penuh · isi</th><th>Aktif</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
-    '<div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;"><input class="form-input" id="nb-n" placeholder="Bahan baru" style="margin:0;max-width:220px;"><input class="form-input" id="nb-u" placeholder="Satuan (gr/ml/pcs)" style="margin:0;max-width:180px;"><button class="btn-sm" onclick="addIngredient()">Tambah</button></div>';}
+// ══ OWNER: MENU & RESEP (HPP, margin, bahan & harga beli, resep batch, biaya marketing) ══
+// Semua perhitungan HPP ada di database (nc_menu_cost). Halaman ini menampilkan & mengirim perubahan
+// lewat fungsi database (nc_menu_save, nc_batch_save, ...) supaya validasi & pencatatannya di satu tempat.
+const KIND_LABEL={stok:'Stok',hpp:'Hanya HPP',kemasan:'Kemasan',racikan:'Racikan'};
+const KIND_HELP={stok:'dipotong kasir & ditimbang saat cek stok',hpp:'hanya untuk hitung harga (mint, buah & gula bahan sirup)',kemasan:'otomatis masuk HPP tiap cup',racikan:'dibuat di tempat, saat checkout dipecah ke bahan aslinya'};
+let _mr=null,_mrIng=[],_mrEdit=null,_mrBatch=null;
+const pct=n=>(n==null?'—':(Math.round(n*10)/10).toLocaleString('id-ID')+'%');
+function marginLevel(m){
+  if(!_mr)return'';const c=_mr.config;
+  if(m==null)return'merah';
+  return m>=+c.target_margin?'hijau':m>=+c.min_margin?'kuning':'merah';
+}
+function marginPill(m,active){
+  if(active===false)return '<span class="status-pill" style="background:rgba(255,255,255,.08);color:var(--mist);">Nonaktif</span>';
+  const l=marginLevel(m),cls={hijau:'s-ok',kuning:'s-warn',merah:'s-danger'}[l],dot={hijau:'dot-ok',kuning:'dot-warn',merah:'dot-danger'}[l];
+  return '<span class="status-pill '+cls+'"><span class="dot '+dot+'"></span>'+pct(m)+'</span>';
+}
+function renderMenuTab(){setTimeout(loadMenuTab,0);
+  return '<div class="page-header"><div class="page-title">Menu & Resep</div><div class="page-subtitle">HPP dihitung otomatis dari harga beli bahan terbaru. Harga jual tetap kamu yang tentukan.</div></div>'+
+    '<div id="mr-body">Memuat…</div>';}
+async function loadMenuTab(){
+  const [o,i]=await Promise.all([sb.rpc('nc_menu_overview'),sb.from('nc_ingredient').select('*').order('name')]);
+  const el=document.getElementById('mr-body');if(!el)return;
+  if(o.error){el.innerHTML='<div class="alert-strip alert-danger"><div><div class="alert-label" style="color:var(--danger);">Gagal memuat Menu & Resep</div><div class="alert-body">'+esc(o.error.message)+'<br>Pastikan file SQL menu sudah dijalankan di Supabase.</div></div></div>';return;}
+  _mr=o.data;_mrIng=i.data||[];drawMenuTab();
+}
+function mrSorted(){
+  const rank={merah:0,kuning:1,hijau:2};
+  return [..._mr.menus].sort((a,b)=>{
+    if(a.active!==b.active)return a.active?-1:1;
+    const ra=rank[marginLevel(a.cost.margin)],rb=rank[marginLevel(b.cost.margin)];
+    if(ra!==rb)return ra-rb;
+    return (a.cost.margin??-999)-(b.cost.margin??-999);
+  });
+}
+function drawMenuTab(){
+  const el=document.getElementById('mr-body');if(!el||!_mr)return;
+  const c=_mr.config,act=_mr.menus.filter(m=>m.active);
+  const red=act.filter(m=>marginLevel(m.cost.margin)==='merah').length,yel=act.filter(m=>marginLevel(m.cost.margin)==='kuning').length;
+  const avg=act.length?act.reduce((s,m)=>s+(+m.cost.margin||0),0)/act.length:0;
+  const sec=(t,sub)=>'<div style="margin:48px 0 16px;"><div class="page-title" style="font-size:20px;">'+t+'</div>'+(sub?'<div class="page-subtitle">'+sub+'</div>':'')+'</div>';
+  const rows=mrSorted().map(m=>{
+    const cs=m.cost,saranBeda=m.active&&cs.saran>m.price;
+    return '<tr style="cursor:pointer;'+(m.active?'':'opacity:.55;')+'" data-n="'+esc(m.name)+'" onclick="openMenuEdit(this.dataset.n)">'+
+      '<td><div class="item-name">'+esc(m.name)+'</div><div class="item-unit">'+esc(m.category||'-')+'</div></td>'+
+      '<td>'+fmtRp(cs.hpp)+'<div class="item-unit">bahan '+fmtRp(cs.bahan)+'</div></td>'+
+      '<td><strong>'+fmtRp(+m.price)+'</strong></td>'+
+      '<td>'+marginPill(cs.margin,m.active)+'</td>'+
+      '<td style="'+(saranBeda?'color:var(--warn);':'color:var(--mist);')+'">'+fmtRp(cs.saran)+(saranBeda?'<div class="item-unit">+'+fmtRp(cs.saran-m.price)+'</div>':'')+'</td>'+
+      '<td><button class="btn-ghost" style="padding:8px 14px;">Edit</button></td></tr>';
+  }).join('');
+  el.innerHTML=
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;"><button class="btn-sm" onclick="openMenuEdit(null)">+ Menu baru</button><button class="btn-ghost" onclick="exportMenu()">⬇ Excel</button></div>'+
+    '<div class="stat-strip">'+
+      '<div class="stat-cell"><div class="stat-label">Menu aktif</div><div class="stat-value">'+act.length+'</div><div class="stat-note">'+(_mr.menus.length-act.length)+' nonaktif</div></div>'+
+      '<div class="stat-cell"><div class="stat-label">Rata-rata margin</div><div class="stat-value '+(avg>=+c.target_margin?'green':avg>=+c.min_margin?'warn':'danger')+'">'+pct(avg)+'</div><div class="stat-note">target ≥ '+pct(+c.target_margin)+'</div></div>'+
+      '<div class="stat-cell"><div class="stat-label">Di bawah target</div><div class="stat-value '+(yel?'warn':'green')+'">'+yel+'</div><div class="stat-note">margin '+pct(+c.min_margin)+' – '+pct(+c.target_margin)+'</div></div>'+
+      '<div class="stat-cell"><div class="stat-label">Margin tipis</div><div class="stat-value '+(red?'danger':'green')+'">'+red+'</div><div class="stat-note">margin &lt; '+pct(+c.min_margin)+'</div></div></div>'+
+    '<table class="data-table"><thead><tr><th>Menu</th><th>HPP</th><th>Harga jual</th><th>Margin</th><th>Saran harga</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="font-size:11px;color:var(--mist);margin-top:10px;">HPP = bahan + '+pct(+c.lost_pct)+' lost n break + '+pct(+c.utility_pct)+' air & listrik + kemasan. Saran harga = harga minimal agar margin ≥ '+pct(+c.target_margin)+', dibulatkan ke atas ke Rp1.000. Klik menu untuk mengubah harga atau resep.</div>'+
+    sec('Bahan & harga beli','Ubah harga di sini → HPP semua menu langsung ikut berubah. Harga baru berlaku mulai hari ini; cek stok yang sudah lewat tetap memakai harga lama.')+
+    '<div id="mr-ing"></div>'+
+    sec('Buatan sendiri','Sirup & racikan dihitung dari resep batch: harga per satuan = total bahan 1 batch ÷ hasil. Kalau harga lemon/gula naik, harga sirup ikut naik.')+
+    '<div id="mr-batch"></div>'+
+    sec('Biaya marketing','Produksi untuk event (mis. tepache Public Cupping Season). Tidak masuk kasir & omzet.')+
+    '<div id="mr-mkt"></div>'+
+    sec('Pengaturan HPP')+'<div id="mr-cfg"></div>'+
+    sec('Riwayat perubahan','30 perubahan terakhir')+'<div id="mr-log"></div>';
+  drawIngredients();drawBatches();drawMarketing();drawMenuConfig();drawMenuLog();
+}
+
+// ── Bahan & harga beli ──
+function ingInfo(n){return (_mr.ingredients||[]).find(x=>x.name===n)||{};}
+function drawIngredients(){
+  const el=document.getElementById('mr-ing');if(!el)return;
+  const inp=(pre,x,val,ph,w)=>'<input class="form-input" style="margin:0;padding:8px;width:'+(w||90)+'px;min-height:40px;" id="'+pre+'-'+cid(x.name)+'" type="number" step="any" min="0" value="'+(val==null?'':esc(val))+'" placeholder="'+ph+'">';
+  const order={stok:0,racikan:1,hpp:2,kemasan:3};
+  const list=[..._mrIng].sort((a,b)=>(a.active===b.active?0:a.active?-1:1)||(order[a.kind]??9)-(order[b.kind]??9)||a.name.localeCompare(b.name));
+  const rows=list.map(x=>{
+    const inf=ingInfo(x.name),hasBatch=+x.batch_yield>0,used=(inf.used_by||[]).length;
+    const price=hasBatch
+      ?fmtRp(+inf.unit_price)+'/'+esc(x.unit)+'<div class="item-unit">dari resep batch</div>'
+      :((+inf.unit_price>0?fmtRp(+inf.unit_price)+'/'+esc(x.unit):'<span style="color:var(--danger);">belum ada</span>')+
+        '<div style="display:flex;gap:4px;margin-top:6px;" data-n="'+esc(x.name)+'" data-u="'+esc(x.unit)+'" oninput="pricePreview(this)">'+inp('pp',x,null,'Harga Rp',100)+inp('ps',x,null,'Isi '+esc(x.unit),80)+'</div>'+
+        '<div class="item-unit" id="pv-'+cid(x.name)+'" style="margin-top:4px;"></div>');
+    const stokOnly=x.kind==='stok';
+    return '<tr'+(x.active?'':' style="opacity:.5;"')+'><td><div class="item-name">'+esc(x.name)+'</div><div class="item-unit">'+esc(x.unit)+(used?' · dipakai '+used+' menu':'')+'</div></td>'+
+      '<td><select class="form-input" id="kind-'+cid(x.name)+'" style="margin:0;min-height:40px;padding:8px;width:130px;">'+Object.entries(KIND_LABEL).map(([k,l])=>'<option value="'+k+'"'+(x.kind===k?' selected':'')+'>'+l+'</option>').join('')+'</select></td>'+
+      '<td>'+price+'</td>'+
+      '<td>'+(stokOnly?inp('rop',x,x.rop,'ROP',80):'<span class="item-unit">—</span>')+'</td>'+
+      '<td>'+(stokOnly?'<div style="display:flex;gap:4px;">'+inp('tare',x,x.tare_g||'','Kosong',80)+inp('full',x,x.full_gross_g,'Penuh',80)+inp('cont',x,x.full_content,'Isi',70)+'</div>':'<span class="item-unit">—</span>')+'</td>'+
+      '<td style="text-align:center;"><input type="checkbox" id="act-'+cid(x.name)+'"'+(x.active?' checked':'')+'></td>'+
+      '<td><button class="btn-sm" data-n="'+esc(x.name)+'" onclick="saveIngredient(this.dataset.n)">Simpan</button></td></tr>';
+  }).join('');
+  el.innerHTML='<div class="page-subtitle" style="margin-bottom:12px;">'+Object.entries(KIND_LABEL).map(([k,l])=>'<strong>'+l+'</strong>: '+KIND_HELP[k]).join(' · ')+'<br>'+
+    '<strong>Botol</strong> (khusus stok dalam botol kaca): Kosong = berat botol kosong (gr), Penuh = berat 1 botol segel (gr), Isi = isi bersih sesuai label.</div>'+
+    '<table class="data-table"><thead><tr><th>Bahan</th><th>Jenis</th><th>Harga/satuan · ubah harga</th><th>ROP</th><th>Botol: kosong · penuh · isi</th><th>Aktif</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;align-items:center;"><input class="form-input" id="nb-n" placeholder="Bahan baru" style="margin:0;max-width:220px;"><input class="form-input" id="nb-u" placeholder="Satuan (gr/ml/pcs)" style="margin:0;max-width:170px;">'+
+    '<select class="form-input" id="nb-k" style="margin:0;max-width:160px;">'+Object.entries(KIND_LABEL).map(([k,l])=>'<option value="'+k+'">'+l+'</option>').join('')+'</select><button class="btn-sm" onclick="addIngredient()">Tambah</button></div>';
+}
 function pricePreview(box){
   const n=box.dataset.n,u=box.dataset.u,pp=document.getElementById('pp-'+cid(n)).value,ps=document.getElementById('ps-'+cid(n)).value;
   const el=document.getElementById('pv-'+cid(n));
   el.innerHTML=(+pp>0&&+ps>0)?'→ harga baru <strong>'+fmtRp(Math.round(+pp/+ps*100)/100)+'/'+esc(u)+'</strong>, berlaku mulai hari ini':'';
 }
 async function saveIngredient(n){
-  const v=k=>document.getElementById(k+'-'+cid(n)).value;
+  const g=k=>document.getElementById(k+'-'+cid(n));
+  const v=k=>g(k)?g(k).value:'';
   const numOrNull=s=>s===''?null:+s;
-  const upd={rop:+v('rop')||0,tare_g:+v('tare')||0,full_gross_g:numOrNull(v('full')),full_content:numOrNull(v('cont')),
-    active:document.getElementById('act-'+cid(n)).checked};
+  const x=_mrIng.find(i=>i.name===n)||{},inf=ingInfo(n),used=(inf.used_by||[]);
+  const upd={kind:v('kind')||x.kind,active:g('act').checked};
+  if(upd.kind==='stok'){Object.assign(upd,{rop:+v('rop')||0,tare_g:+v('tare')||0,full_gross_g:numOrNull(v('full')),full_content:numOrNull(v('cont'))});}
   if(upd.tare_g>0&&upd.full_gross_g!=null&&upd.full_gross_g<=upd.tare_g){toast('Berat botol penuh harus lebih besar dari botol kosong','wrn');return;}
+  if(upd.kind==='kemasan'&&used.length){toast(n+' masih dipakai di resep '+used.join(', ')+'. Hapus dulu dari resep.','wrn');return;}
+  if(!upd.active&&x.active&&used.length&&!confirm(n+' masih dipakai di: '+used.join(', ')+'.\nTetap nonaktifkan? (Resepnya tidak berubah, tapi bahan ini tidak muncul di cek stok)'))return;
   const {error}=await sb.from('nc_ingredient').update(upd).eq('name',n);
   if(error)return toast('Gagal: '+error.message,'err');
+  if(upd.kind==='stok'){await sb.from('nc_inventory').upsert({name:n,stock:getInv()[n]??0,updated_at:new Date().toISOString()},{onConflict:'name'});}
   const pp=v('pp'),ps=v('ps');
   if(pp!==''||ps!==''){
     if(!(+pp>=0)||!(+ps>0)){toast('Pengaturan tersimpan, tapi harga butuh harga kemasan & isi kemasan','wrn');}
@@ -1356,19 +1450,244 @@ async function saveIngredient(n){
       if(r.error)return toast('Gagal simpan harga: '+r.error.message,'err');
     }
   }
-  toast(n+' tersimpan','ok');
-  await loadAllData();drawPrices();}
+  toast(n+' tersimpan. HPP menu ikut diperbarui','ok');
+  await loadAllData();loadMenuTab();}
 async function addIngredient(){
-  const n=document.getElementById('nb-n').value.trim(),u=document.getElementById('nb-u').value.trim();
+  const n=document.getElementById('nb-n').value.trim(),u=document.getElementById('nb-u').value.trim(),k=document.getElementById('nb-k').value;
   if(!n||!u){toast('Isi nama & satuan','wrn');return;}
-  const {error}=await sb.from('nc_ingredient').insert({name:n,unit:u});
+  if(/[,()"]/.test(n)){toast('Nama bahan tidak boleh memakai koma, kurung, atau kutip','wrn');return;}
+  const {error}=await sb.from('nc_ingredient').insert({name:n,unit:u,kind:k});
+  if(error)return toast('Gagal: '+(/duplicate|unique/i.test(error.message)?'bahan "'+n+'" sudah ada':error.message),'err');
+  await saveStock(n,0); // baris nc_inventory wajib ada supaya bahan bisa dipakai di resep
+  toast(n+' ditambahkan. Isi harganya di tabel','ok');
+  await loadAllData();loadMenuTab();}
+
+// ── Edit menu (modal) ──
+function ingOptions(sel){
+  const groups=[['stok','Stok'],['racikan','Racikan'],['hpp','Hanya HPP']];
+  return '<option value="">Pilih bahan…</option>'+groups.map(([k,l])=>{
+    const xs=(_mr.ingredients||[]).filter(i=>i.kind===k&&(i.active||i.name===sel));
+    return xs.length?'<optgroup label="'+l+'">'+xs.map(i=>'<option value="'+esc(i.name)+'"'+(i.name===sel?' selected':'')+'>'+esc(i.name)+' ('+esc(i.unit)+')</option>').join('')+'</optgroup>':'';
+  }).join('');
+}
+function openMenuEdit(name){
+  const m=name?_mr.menus.find(x=>x.name===name):null;
+  _mrEdit={old:name,lines:m?m.cost.lines.map(l=>({ingredient:l.ingredient,qty:+l.qty})):[{ingredient:'',qty:''}]};
+  const cats=[...(_mr.config.categories||[])];if(m&&m.category&&!cats.includes(m.category))cats.push(m.category);
+  document.querySelector('.modal-box').style.maxWidth='760px';
+  document.getElementById('modal-inner').innerHTML=
+    '<div class="modal-title">'+(m?'Edit menu':'Menu baru')+'</div>'+
+    '<div style="display:grid;grid-template-columns:2fr 1.4fr 1fr;gap:10px;">'+
+      '<div><label class="form-label">Nama menu</label><input class="form-input" id="me-name" value="'+esc(m?m.name:'')+'" placeholder="mis. Kopi Gula Aren"></div>'+
+      '<div><label class="form-label">Kategori</label><select class="form-input" id="me-cat">'+cats.map(c=>'<option'+(m&&m.category===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></div>'+
+      '<div><label class="form-label">Harga jual (Rp)</label><input class="form-input" id="me-price" type="number" min="0" step="500" inputmode="numeric" value="'+(m?+m.price:'')+'" oninput="menuEditCalc()"></div></div>'+
+    '<div style="display:flex;gap:24px;flex-wrap:wrap;margin:-6px 0 18px;font-size:13px;">'+
+      '<label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="me-active"'+(!m||m.active?' checked':'')+'> Aktif (tampil di kasir)</label>'+
+      '<label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="me-kem"'+(!m||m.kemasan?' checked':'')+' onchange="menuEditCalc()"> Hitung kemasan (cup, sticker, sedotan)</label></div>'+
+    '<label class="form-label">Resep per cup</label><div id="me-lines"></div>'+
+    '<button class="btn-ghost" style="margin:6px 0 18px;" onclick="menuLineAdd()">+ Bahan</button>'+
+    '<div id="me-calc" class="alert-strip alert-warn" style="display:block;"></div>'+
+    '<div class="modal-actions">'+(m?'<button class="btn-ghost" style="color:var(--danger);border-color:rgba(255,154,168,.5);" onclick="menuArchive()">Hapus dari kasir</button>':'')+
+      '<button class="btn-ghost" onclick="closeModal()">Batal</button><button class="btn-full" id="me-save" style="flex:1;" onclick="menuSave()">Simpan</button></div>';
+  drawMenuLines();showModal();
+}
+function drawMenuLines(){
+  const el=document.getElementById('me-lines');if(!el)return;
+  el.innerHTML=_mrEdit.lines.map((l,i)=>{
+    const inf=ingInfo(l.ingredient);
+    return '<div style="display:grid;grid-template-columns:2fr 1fr 70px 1fr 44px;gap:8px;align-items:center;margin-bottom:8px;">'+
+      '<select class="form-input" style="margin:0;" onchange="menuLineSet('+i+',\'ingredient\',this.value)">'+ingOptions(l.ingredient)+'</select>'+
+      '<input class="form-input" style="margin:0;" type="number" step="any" min="0" inputmode="decimal" value="'+(l.qty===''?'':l.qty)+'" placeholder="Takaran" oninput="menuLineSet('+i+',\'qty\',this.value)">'+
+      '<span class="unit-label">'+esc(inf.unit||'')+'</span>'+
+      '<span class="item-unit" id="me-c-'+i+'" style="text-align:right;">'+(inf.unit_price&&l.qty?fmtRp(Math.round(+inf.unit_price*+l.qty)):'')+'</span>'+
+      '<button class="btn-ghost" style="padding:8px;" onclick="menuLineDel('+i+')">✕</button></div>';
+  }).join('');
+  menuEditCalc();
+}
+function menuLineAdd(){_mrEdit.lines.push({ingredient:'',qty:''});drawMenuLines();}
+function menuLineDel(i){_mrEdit.lines.splice(i,1);if(!_mrEdit.lines.length)_mrEdit.lines.push({ingredient:'',qty:''});drawMenuLines();}
+function menuLineSet(i,k,v){
+  _mrEdit.lines[i][k]=k==='qty'?(v===''?'':+v):v;
+  if(k==='ingredient')drawMenuLines();
+  else{const inf=ingInfo(_mrEdit.lines[i].ingredient),c=document.getElementById('me-c-'+i);if(c)c.textContent=inf.unit_price&&v?fmtRp(Math.round(+inf.unit_price*+v)):'';menuEditCalc();}
+}
+function menuEditCalc(){
+  const el=document.getElementById('me-calc');if(!el)return;
+  const c=_mr.config,price=+document.getElementById('me-price').value||0;
+  const bahan=_mrEdit.lines.reduce((s,l)=>s+(+ingInfo(l.ingredient).unit_price||0)*(+l.qty||0),0);
+  const kem=document.getElementById('me-kem').checked?(_mr.ingredients||[]).filter(i=>i.kind==='kemasan'&&i.active).reduce((s,i)=>s+(+i.unit_price||0),0):0;
+  const extra=bahan*(+c.lost_pct+ +c.utility_pct)/100,hpp=bahan+extra+kem;
+  const margin=price>0?(price-hpp)/price*100:null,saran=Math.ceil(hpp/(1-c.target_margin/100)/1000)*1000;
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:12px;">'+
+    '<div><div class="stat-label">Bahan</div><strong>'+fmtRp(Math.round(bahan))+'</strong></div>'+
+    '<div><div class="stat-label">Lost + air</div><strong>'+fmtRp(Math.round(extra))+'</strong></div>'+
+    '<div><div class="stat-label">Kemasan</div><strong>'+fmtRp(Math.round(kem))+'</strong></div>'+
+    '<div><div class="stat-label">HPP</div><strong style="font-size:15px;">'+fmtRp(Math.round(hpp))+'</strong></div></div>'+
+    '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:13px;">Margin '+marginPill(margin)+
+    '<span>Saran harga <strong>'+fmtRp(saran)+'</strong></span>'+(saran!==price?'<button class="btn-ghost" style="padding:6px 12px;" onclick="document.getElementById(\'me-price\').value='+saran+';menuEditCalc()">Pakai saran</button>':'')+'</div>';
+}
+async function menuSave(){
+  const name=document.getElementById('me-name').value.trim(),price=document.getElementById('me-price').value;
+  const lines=_mrEdit.lines.filter(l=>l.ingredient||l.qty!=='');
+  if(!name)return toast('Nama menu wajib diisi','wrn');
+  if(price===''||+price<0)return toast('Harga jual wajib diisi','wrn');
+  if(!lines.length)return toast('Resep minimal 1 bahan','wrn');
+  if(lines.some(l=>!l.ingredient||!(+l.qty>0)))return toast('Lengkapi bahan & takaran (lebih dari 0)','wrn');
+  if(_mrEdit.old&&_mrEdit.old!==name&&!confirm('Ganti nama "'+_mrEdit.old+'" → "'+name+'"?\nRiwayat penjualan tetap tercatat dengan nama lama.'))return;
+  const btn=document.getElementById('me-save');btn.disabled=true;btn.textContent='Menyimpan…';
+  const {data,error}=await sb.rpc('nc_menu_save',{p_old_name:_mrEdit.old,p_name:name,p_category:document.getElementById('me-cat').value,
+    p_price:Math.round(+price),p_active:document.getElementById('me-active').checked,p_kemasan:document.getElementById('me-kem').checked,
+    p_lines:lines.map(l=>({ingredient:l.ingredient,qty:+l.qty}))});
+  if(error){toast('Gagal: '+error.message,'err');btn.disabled=false;btn.textContent='Simpan';return;}
+  closeModal();toast(name+' tersimpan · HPP '+fmtRp(data.cost.hpp)+' · margin '+pct(data.cost.margin)+'. Kasir ikut berubah setelah di-refresh','ok');
+  await loadAllData();loadMenuTab();
+}
+async function menuArchive(){
+  const n=_mrEdit.old;if(!n)return;
+  if(!confirm('Hapus "'+n+'" dari kasir?\nRiwayat penjualannya tetap ada di laporan.'))return;
+  const {error}=await sb.rpc('nc_menu_archive',{p_name:n});
   if(error)return toast('Gagal: '+error.message,'err');
-  await saveStock(n,0);toast(n+' ditambahkan. Isi harga & ROP-nya di tabel','ok');
-  await loadAllData();drawPrices();}
+  closeModal();toast(n+' dihapus dari kasir','ok');await loadAllData();loadMenuTab();
+}
+
+// ── Resep batch (sirup & racikan) ──
+function drawBatches(){
+  const el=document.getElementById('mr-batch');if(!el)return;
+  const cards=(_mr.batches||[]).map(b=>{
+    const cost=(b.lines||[]).reduce((s,l)=>s+(+l.cost||0),0);
+    return '<div class="input-card"><div class="input-card-name">'+esc(b.product)+' <span class="status-pill" style="background:rgba(255,255,255,.08);color:var(--mist);">'+esc(KIND_LABEL[b.kind]||b.kind)+'</span></div>'+
+      '<div class="item-unit" style="margin-bottom:10px;">'+(b.lines||[]).map(l=>esc(l.ingredient)+' '+fmtNum(+l.qty)+' '+esc(l.unit||'')).join(' + ')+' → <strong style="color:var(--ink);">'+fmtNum(+b.yield)+' '+esc(b.unit)+'</strong></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="font-size:13px;">1 batch '+fmtRp(cost)+' · <strong>'+fmtRp(+b.unit_price)+'/'+esc(b.unit)+'</strong></div>'+
+      '<button class="btn-ghost" style="padding:8px 14px;" data-n="'+esc(b.product)+'" onclick="openBatchEdit(this.dataset.n)">Edit</button></div></div>';
+  }).join('');
+  el.innerHTML='<div class="input-grid">'+cards+'</div><button class="btn-ghost" style="margin-top:14px;" onclick="openBatchEdit(null)">+ Resep batch</button>';
+}
+function openBatchEdit(name){
+  const b=name?(_mr.batches||[]).find(x=>x.product===name):null;
+  _mrBatch={product:name,lines:b?b.lines.map(l=>({ingredient:l.ingredient,qty:+l.qty})):[{ingredient:'',qty:''}]};
+  const candidates=(_mr.ingredients||[]).filter(i=>!(+i.batch_yield>0)&&i.kind!=='kemasan');
+  const comp=sel=>'<option value="">Pilih bahan…</option>'+(_mr.ingredients||[]).filter(i=>!(+i.batch_yield>0)&&(i.active||i.name===sel)).map(i=>'<option value="'+esc(i.name)+'"'+(i.name===sel?' selected':'')+'>'+esc(i.name)+' ('+esc(i.unit)+')</option>').join('');
+  document.querySelector('.modal-box').style.maxWidth='620px';
+  const draw=()=>{
+    document.getElementById('bt-lines').innerHTML=_mrBatch.lines.map((l,i)=>'<div style="display:grid;grid-template-columns:2fr 1fr 44px;gap:8px;margin-bottom:8px;">'+
+      '<select class="form-input" style="margin:0;" onchange="_mrBatch.lines['+i+'].ingredient=this.value">'+comp(l.ingredient)+'</select>'+
+      '<input class="form-input" style="margin:0;" type="number" step="any" min="0" value="'+(l.qty===''?'':l.qty)+'" placeholder="Jumlah" oninput="_mrBatch.lines['+i+'].qty=this.value">'+
+      '<button class="btn-ghost" style="padding:8px;" onclick="_mrBatch.lines.splice('+i+',1);_mrBatch.draw()">✕</button></div>').join('');
+  };
+  _mrBatch.draw=draw;
+  document.getElementById('modal-inner').innerHTML='<div class="modal-title">'+(b?'Resep batch '+esc(b.product):'Resep batch baru')+'</div>'+
+    (b?'':'<label class="form-label">Hasil racikan (pilih dari daftar bahan)</label><select class="form-input" id="bt-prod">'+candidates.map(i=>'<option value="'+esc(i.name)+'">'+esc(i.name)+' ('+esc(i.unit)+')</option>').join('')+'</select>')+
+    '<label class="form-label">Bahan untuk 1 batch</label><div id="bt-lines"></div><button class="btn-ghost" style="margin:6px 0 18px;" onclick="_mrBatch.lines.push({ingredient:\'\',qty:\'\'});_mrBatch.draw()">+ Bahan</button>'+
+    '<label class="form-label">Hasil 1 batch'+(b?' ('+esc(b.unit)+')':'')+'</label><input class="form-input" id="bt-yield" type="number" step="any" min="0" value="'+(b?+b.yield:'')+'" placeholder="mis. 750">'+
+    '<div class="item-unit" style="margin:-10px 0 16px;">Air tidak perlu ditulis. Bahan seperti kulit nanas yang gratis juga tidak perlu.</div>'+
+    '<div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Batal</button><button class="btn-full" style="flex:1;" onclick="batchSave()">Simpan</button></div>';
+  draw();showModal();
+}
+async function batchSave(){
+  const p=_mrBatch.product||document.getElementById('bt-prod').value,y=+document.getElementById('bt-yield').value;
+  const lines=_mrBatch.lines.filter(l=>l.ingredient||l.qty!=='');
+  if(!p)return toast('Pilih hasil racikan','wrn');
+  if(!(y>0))return toast('Isi hasil per batch','wrn');
+  if(!lines.length||lines.some(l=>!l.ingredient||l.qty===''||+l.qty<0))return toast('Lengkapi bahan & jumlahnya','wrn');
+  const {data,error}=await sb.rpc('nc_batch_save',{p_product:p,p_yield:y,p_lines:lines.map(l=>({ingredient:l.ingredient,qty:+l.qty}))});
+  if(error)return toast('Gagal: '+error.message,'err');
+  closeModal();toast(p+' tersimpan · '+fmtRp(data.unit_price)+' per satuan','ok');await loadAllData();loadMenuTab();
+}
+
+// ── Biaya marketing ──
+function drawMarketing(){
+  const el=document.getElementById('mr-mkt');if(!el)return;
+  const items=(_mr.batches||[]).filter(b=>b.kind==='hpp');
+  const list=_mr.marketing||[],total=list.reduce((s,x)=>s+(+x.cost||0),0);
+  el.innerHTML=(items.length
+    ?'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;">'+
+      '<div><label class="form-label">Produksi</label><select class="form-input" id="mk-item" style="margin:0;min-width:180px;">'+items.map(b=>'<option value="'+esc(b.product)+'">'+esc(b.product)+' ('+fmtNum(+b.yield)+' '+esc(b.unit)+'/batch)</option>').join('')+'</select></div>'+
+      '<div><label class="form-label">Jumlah batch</label><input class="form-input" id="mk-n" type="number" min="0.5" step="0.5" value="1" style="margin:0;width:110px;"></div>'+
+      '<div style="flex:1;min-width:180px;"><label class="form-label">Catatan</label><input class="form-input" id="mk-note" placeholder="mis. Public Cupping Season Oktober" style="margin:0;"></div>'+
+      '<button class="btn-sm" onclick="marketingLog()">Catat</button></div>'
+    :'<div class="item-unit" style="margin-bottom:12px;">Belum ada resep batch jenis "Hanya HPP" (mis. Tepache).</div>')+
+    '<div class="stat-strip" style="grid-template-columns:1fr 1fr;max-width:520px;"><div class="stat-cell"><div class="stat-label">Biaya marketing bulan ini</div><div class="stat-value" style="font-size:22px;">'+fmtRp(total)+'</div></div>'+
+      '<div class="stat-cell"><div class="stat-label">Produksi bulan ini</div><div class="stat-value" style="font-size:22px;">'+list.length+'×</div></div></div>'+
+    (list.length?'<table class="data-table"><thead><tr><th>Tanggal</th><th>Produksi</th><th>Hasil</th><th>Biaya</th><th>Catatan</th><th></th></tr></thead><tbody>'+
+      list.map(x=>'<tr><td>'+esc(x.work_date)+'</td><td>'+esc(x.item)+' · '+fmtNum(+x.batches)+' batch</td><td>'+fmtNum(+x.qty)+' '+esc(x.unit||'')+'</td><td>'+fmtRp(+x.cost)+'</td><td class="item-unit">'+esc(x.note||'')+'</td>'+
+        '<td><button class="btn-ghost" style="padding:6px 10px;" onclick="marketingDel('+(+x.id)+')">✕</button></td></tr>').join('')+'</tbody></table>':'');
+}
+async function marketingLog(){
+  const item=document.getElementById('mk-item').value,n=+document.getElementById('mk-n').value,note=document.getElementById('mk-note').value;
+  if(!(n>0))return toast('Isi jumlah batch','wrn');
+  const {data,error}=await sb.rpc('nc_log_marketing',{p_item:item,p_batches:n,p_note:note});
+  if(error)return toast('Gagal: '+error.message,'err');
+  toast(item+' tercatat · biaya '+fmtRp(data.cost),'ok');loadMenuTab();
+}
+async function marketingDel(id){
+  if(!confirm('Hapus catatan biaya marketing ini?'))return;
+  const {error}=await sb.rpc('nc_marketing_delete',{p_id:id});
+  if(error)return toast('Gagal: '+error.message,'err');loadMenuTab();
+}
+
+// ── Pengaturan HPP & riwayat ──
+function drawMenuConfig(){
+  const el=document.getElementById('mr-cfg');if(!el)return;const c=_mr.config;
+  const f=(id,l,v,note)=>'<div><label class="form-label">'+l+'</label><input class="form-input" id="'+id+'" type="number" step="0.1" min="0" value="'+v+'" style="margin:0;"><div class="item-unit" style="margin-top:6px;">'+note+'</div></div>';
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">'+
+    f('cf-lost','Lost n break (%)',+c.lost_pct,'dari total bahan')+f('cf-util','Air & listrik (%)',+c.utility_pct,'dari total bahan')+
+    f('cf-target','Target margin (%)',+c.target_margin,'hijau; 66,7% = HPP × 3')+f('cf-min','Batas merah (%)',+c.min_margin,'di bawah ini = margin tipis')+'</div>'+
+    '<label class="form-label">Kategori menu (urutan di kasir, pisahkan dengan baris baru)</label><textarea class="form-input" id="cf-cat" rows="5" style="resize:vertical;">'+esc((c.categories||[]).join('\n'))+'</textarea>'+
+    '<button class="btn-sm" onclick="menuConfigSave()">Simpan pengaturan</button>';
+}
+async function menuConfigSave(){
+  const g=id=>+document.getElementById(id).value;
+  const cats=document.getElementById('cf-cat').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const {error}=await sb.rpc('nc_menu_config_save',{p_lost:g('cf-lost'),p_utility:g('cf-util'),p_target:g('cf-target'),p_min:g('cf-min'),p_categories:cats});
+  if(error)return toast('Gagal: '+error.message,'err');
+  toast('Pengaturan tersimpan. HPP & saran harga dihitung ulang','ok');loadMenuTab();
+}
+function drawMenuLog(){
+  const el=document.getElementById('mr-log');if(!el)return;
+  const xs=_mr.log||[];
+  el.innerHTML=xs.length?'<table class="data-table"><thead><tr><th>Waktu</th><th>Menu / bahan</th><th>Perubahan</th></tr></thead><tbody>'+
+    xs.map(x=>'<tr><td class="item-unit" style="white-space:nowrap;">'+new Date(x.ts).toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'</td><td><strong>'+esc(x.menu)+'</strong><div class="item-unit">'+esc(x.action)+'</div></td><td style="font-size:12px;">'+esc(x.detail||'')+'</td></tr>').join('')+'</tbody></table>'
+    :'<div class="item-unit">Belum ada perubahan.</div>';
+}
+
+// ── Excel ──
+function exportMenu(){
+  if(!_mr)return;
+  if(typeof XLSX==='undefined')return toast('Gagal memuat modul xlsx','err');
+  const c=_mr.config,lv={hijau:'Hijau',kuning:'Kuning (di bawah target)',merah:'MERAH (margin tipis)'};
+  const s1=[['Margin Menu · Nirmala Coffee'],['Dibuat',today()],['Target margin',+c.target_margin+'%','Batas merah',+c.min_margin+'%'],[],
+    ['Menu','Kategori','Status','Aktif','Harga jual','Bahan','Lost n break','Air & listrik','Kemasan','HPP','Margin (Rp)','Margin %','Saran harga','Selisih ke saran']];
+  mrSorted().forEach(m=>{const k=m.cost;s1.push([m.name,m.category,m.active?lv[marginLevel(k.margin)]:'Nonaktif',m.active?'Ya':'Tidak',+m.price,k.bahan,k.lost,k.utility,k.kemasan,k.hpp,+m.price-k.hpp,k.margin,k.saran,Math.max(0,k.saran-m.price)]);});
+  const s2=[['Menu','Bahan','Jenis','Takaran','Satuan','Harga/satuan','Biaya']];
+  _mr.menus.forEach(m=>(m.cost.lines||[]).forEach(l=>s2.push([m.name,l.ingredient,KIND_LABEL[l.kind]||l.kind,+l.qty,l.unit,+l.unit_price,+l.cost])));
+  const s3=[['Bahan','Jenis','Satuan','Harga/satuan','Aktif','Dipakai di menu']];
+  (_mr.ingredients||[]).forEach(i=>s3.push([i.name,KIND_LABEL[i.kind]||i.kind,i.unit,+i.unit_price,i.active?'Ya':'Tidak',(i.used_by||[]).join(', ')]));
+  const s4=[['Produk','Bahan','Jumlah','Satuan','Biaya','Hasil 1 batch','Harga/satuan produk']];
+  (_mr.batches||[]).forEach(b=>(b.lines||[]).forEach(l=>s4.push([b.product,l.ingredient,+l.qty,l.unit,+l.cost,+b.yield+' '+b.unit,+b.unit_price])));
+  const s5=[['Tanggal','Produksi','Batch','Hasil','Satuan','Biaya','Catatan']];
+  (_mr.marketing||[]).forEach(x=>s5.push([x.work_date,x.item,+x.batches,+x.qty,x.unit,+x.cost,x.note||'']));
+  const wb=XLSX.utils.book_new();
+  const add=(n,a,w)=>{const ws=XLSX.utils.aoa_to_sheet(a);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,n);};
+  add('Margin Menu',s1,[24,20,22,7,11,10,11,11,10,10,11,9,12,14]);add('Resep',s2,[24,18,11,9,7,12,10]);
+  add('Harga Bahan',s3,[18,11,8,12,7,40]);add('Resep Batch',s4,[16,18,9,8,10,13,16]);add('Marketing Bulan Ini',s5,[12,12,7,9,7,10,30]);
+  XLSX.writeFile(wb,'nirmala-margin-menu-'+today()+'.xlsx');toast('Excel berhasil diexport','ok');
+}
+
+// ── Dashboard: peringatan margin ──
+async function loadDashMargin(){
+  const {data,error}=await sb.rpc('nc_menu_overview');
+  const el=document.getElementById('dash-margin');if(!el||error||!data)return;
+  _mr=data;
+  const act=data.menus.filter(m=>m.active),red=act.filter(m=>marginLevel(m.cost.margin)==='merah'),yel=act.filter(m=>marginLevel(m.cost.margin)==='kuning');
+  if(!red.length&&!yel.length){el.innerHTML='';return;}
+  el.innerHTML='<div class="alert-strip '+(red.length?'alert-danger':'alert-warn')+'" style="cursor:pointer;" onclick="switchTab(\'menu\')"><div>'+
+    '<div class="alert-label" style="color:'+(red.length?'var(--danger)':'var(--warn)')+';">'+(red.length?red.length+' menu margin tipis (< '+pct(+data.config.min_margin)+')':'')+(red.length&&yel.length?' · ':'')+(yel.length?yel.length+' menu di bawah target '+pct(+data.config.target_margin):'')+'</div>'+
+    '<div class="alert-body">'+[...red,...yel].slice(0,6).map(m=>esc(m.name)+' '+pct(m.cost.margin)).join(' · ')+(red.length+yel.length>6?' …':'')+' — klik untuk lihat di Menu & Resep</div></div></div>';
+}
 
 // ══ MODAL ══
 function showModal(){document.getElementById('modal-overlay').classList.remove('hidden');}
-function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');}
+function closeModal(){document.getElementById('modal-overlay').classList.add('hidden');document.querySelector('.modal-box').style.maxWidth='';}
 function handleOverlayClick(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
 
 // ══ TOAST ══
