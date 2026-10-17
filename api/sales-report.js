@@ -6,7 +6,7 @@
 //      DAILY_TARGET_CUPS (opsional, default 33)
 //
 // ATURAN BISNIS
-// - "Cup" = MINUMAN saja (kategori di DRINK_CATEGORIES). Makanan/Snack tidak dihitung.
+// - "Cup" = MINUMAN saja (semua kategori kecuali NON_DRINK_CATEGORIES). Makanan/Snack tidak dihitung.
 //   Bundle dihitung per menu minuman di dalamnya. Redeem gratis tetap dihitung (cup tetap dibuat).
 // - Target harian = DAILY_TARGET_CUPS cup, gabungan Shift 1 + Shift 2.
 // - Barista per transaksi dibaca dari nc_sales.barista (dicatat checkout.js = yang clock in terakhir).
@@ -21,8 +21,9 @@ const SALE_TYPES = POS_TYPES;
 const SHIFT_SPLIT_MIN = 15 * 60; // Shift 1: sebelum 15:00, Shift 2: 15:00 dst.
 const MAX_DAYS = 93;
 const DAILY_TARGET_CUPS = Number(process.env.DAILY_TARGET_CUPS) || 33;
-// Kategori nc_menu yang dihitung sebagai MINUMAN. Ubah di sini kalau ada kategori minuman baru.
-const DRINK_CATEGORIES = ['Coffee', 'Non Coffee', 'Mocktail'];
+// [REVISI] Semua kategori dihitung MINUMAN, kecuali kategori di bawah ini.
+// Jadi kategori baru (mis. "Coffee · Signature", "Mocktail · Non-Coffee") otomatis terhitung sebagai cup.
+const NON_DRINK_CATEGORIES = ['Makanan', 'Snack', 'Lainnya'];
 const NO_BARISTA = '(tanpa barista)';
 
 function wibParts(d = new Date()) {
@@ -56,7 +57,8 @@ const round1 = (n) => Math.round(n * 10) / 10;
 
 const isDrink = (category) => {
   const c = String(category || '').trim().toLowerCase();
-  return DRINK_CATEGORIES.some((x) => x.toLowerCase() === c);
+  if (!c) return false;
+  return !NON_DRINK_CATEGORIES.some((x) => x.toLowerCase() === c);
 };
 // Jumlah CUP MINUMAN satu baris penjualan.
 // - menu biasa / redeem gratis: qty kalau kategorinya minuman, selain itu 0
