@@ -6,7 +6,8 @@
 <meta name="theme-color" content="#121210">
 <title>Nirmala Coffee</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- xlsx-js-style: SheetJS 0.18.5 + dukungan warna sel (untuk highlight merah di Excel) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 /* Tampilan mengikuti halaman Absensi: latar gelap dengan burst hijau, Helvetica Neue,
    kotak transparan bergaris tipis. Dioptimalkan untuk tablet operasional. */
@@ -1134,7 +1135,7 @@ async function submitCek(){
   const btn=document.getElementById('cek-submit');btn.disabled=true;btn.textContent='Menyimpan…';
   const {data,error}=await sb.rpc('nc_submit_stock_check',{p_lines:lines});
   if(error){toast('Gagal: '+error.message,'err');btn.disabled=false;btn.textContent='Simpan Cek '+s.label;return;}
-  toast('Cek '+data.label+' tersimpan. '+data.flagged+' bahan selisih di atas 5%','ok');
+  toast('Cek '+data.label+' tersimpan. Terima kasih!','ok');
   await loadAllData();
   checkInventoryROP();
   loadCek();
@@ -1232,42 +1233,80 @@ function selRows(){
   const bar=(document.getElementById('sl-bar')||{}).value||'';
   return bar?_sel.rows.filter(r=>respName(r)===bar):_sel.rows;
 }
+const selTol=rows=>{for(const r of rows)for(const l of (r.lines||[]))if(l.tolerance_pct!=null)return +l.tolerance_pct;return _mr&&_mr.config?+_mr.config.lost_pct:10;};
+// Status per bahan (dihitung database, lihat nirmala-selisih-jatah-loss.sql):
+//   Selisih % = (stok sistem − stok fisik) ÷ stok sistem. Batas = Lost n break (10%), toleransi timbangan ±2 gr/ml
+//   bocor = fisik KURANG > 10% (MERAH) · lebih = fisik LEBIH BANYAK > 10% (KUNING) · normal · kalibrasi = titik nol
+const LINE_ST={
+  bocor:{label:'Bocor',cls:'s-danger',dot:'dot-danger',bg:'rgba(255,154,168,.09)',xl:{fill:'FFC7CE',font:'9C0006'}},
+  lebih:{label:'Perlu dicek',cls:'s-warn',dot:'dot-warn',bg:'rgba(244,194,122,.07)',xl:{fill:'FFEB9C',font:'9C5700'}},
+  normal:{label:'Normal',cls:'s-ok',dot:'dot-ok',bg:'',xl:null},
+  kalibrasi:{label:'Kalibrasi',cls:'',dot:'',bg:'',xl:{fill:'EDEDED',font:'595959'}},
+};
+const LINE_KET={bocor:'Fisik kurang dari sistem (nuang berlebih)',lebih:'Fisik lebih banyak dari sistem (indikasi restock tidak dicatat)',normal:'Selisih dalam batas wajar',kalibrasi:'Timbangan pertama (titik nol, tidak dihitung)'};
+const lineStatus=l=>l.status||(l.prev_physical==null?'kalibrasi':(l.flagged?'bocor':'normal'));
+const linePill=l=>{const s=LINE_ST[lineStatus(l)];
+  return s.cls?'<span class="status-pill '+s.cls+'"><span class="dot '+s.dot+'"></span>'+s.label+'</span>'
+    :'<span class="status-pill" style="background:rgba(255,255,255,.08);color:var(--mist);">'+s.label+'</span>';};
+function sumLines(rows){
+  const t={bocor:0,lebih:0,normal:0,kalibrasi:0,nBocor:0,nLebih:0,nKal:0};
+  rows.filter(r=>r.status==='ok').forEach(r=>(r.lines||[]).forEach(l=>{
+    const s=lineStatus(l),rp=+l.variance_rp||0;
+    t[s]+=rp;if(s==='bocor')t.nBocor++;if(s==='lebih')t.nLebih++;if(s==='kalibrasi')t.nKal++;
+  }));
+  return t;
+}
 function drawSelisih(){
   const el=document.getElementById('sl-body');if(!el)return;
   const rowsData=selRows();
   const done=rowsData.filter(r=>r.status==='ok');
-  const total=done.reduce((s,r)=>s+(+r.total_variance_rp||0),0);
   const missed=rowsData.filter(r=>r.status==='terlewat').length;
-  const red=done.reduce((s,r)=>s+(r.lines||[]).filter(l=>l.flagged).length,0);
+  const T=sumLines(rowsData);
+  const tol=selTol(rowsData);
   const rows=[...rowsData].reverse().map(r=>{
     const nm=n=>n?esc(n):(r.work_date===today()?'<span style="color:var(--warn);">menunggu clock in</span>':'<span style="color:var(--mist);">tidak ada clock in</span>');
     const who=r.check_type==='handover'
       ?nm(r.shift1)+' <span style="color:var(--mist);">→ '+(r.shift2?esc(r.shift2):'—')+'</span>'
       :nm(respName(r));
-    const ls=r.lines||[],f=ls.filter(l=>l.flagged);
+    const ls=r.lines||[],t=sumLines([r]);
+    const allKal=ls.length&&t.nKal===ls.length;
+    const val=r.status!=='ok'?'—'
+      :allKal?'<span style="color:var(--mist);font-weight:400;">kalibrasi</span>'
+      :'<span style="color:'+(t.bocor>0?'var(--danger)':'var(--ink)')+';">'+fmtRp(t.bocor)+'</span>'+
+        (t.nLebih?'<div class="item-unit" style="color:var(--warn);">'+t.nLebih+' perlu dicek · '+fmtRp(t.lebih)+'</div>':'');
     let main='<tr><td><div class="item-name">'+esc(r.label)+'</div><div class="item-unit">'+esc(r.work_date)+' · Shift '+r.shift+'</div></td>'+
-      '<td>'+who+'</td><td>'+statusTag(r)+'</td>'+
-      '<td style="font-weight:700;color:'+((+r.total_variance_rp||0)>0?'var(--danger)':'var(--ink)')+';">'+(r.status==='ok'?fmtRp(+r.total_variance_rp):'—')+'</td></tr>';
+      '<td>'+who+'</td><td>'+statusTag(r)+'</td><td style="font-weight:700;">'+val+'</td></tr>';
     if(r.status!=='ok')return main;
-    const det=ls.map(l=>{
-      const fix=r.is_latest?' <button class="btn-ghost" style="padding:4px 8px;font-size:10px;" data-c="'+esc(r.id)+'" data-i="'+esc(l.ingredient)+'" data-u="'+esc(l.unit||'')+'" data-v="'+esc(l.physical_qty)+'" onclick="fixLine(this.dataset)">koreksi</button>':'';
-      return '<tr style="'+(l.flagged?'background:rgba(255,154,168,.07);':'')+'"><td style="padding:8px 0;">'+esc(l.ingredient)+fix+(l.reason?'<div class="item-unit">'+esc(l.reason)+'</div>':'')+'</td>'+
-        '<td>'+fmtNum(+l.system_qty)+'</td><td><strong>'+fmtNum(+l.physical_qty)+'</strong> '+esc(l.unit||'')+'</td>'+
-        '<td style="color:'+(l.flagged?'var(--danger)':'inherit')+';">'+fmtNum(+l.variance_qty)+' ('+(+l.variance_pct)+'%)</td>'+
-        '<td>'+fmtRp(+l.variance_rp)+'</td>'+
-        '<td>'+(l.usage_theoretical==null?'—':fmtNum(+l.usage_theoretical))+'</td><td>'+(l.usage_actual==null?'—':fmtNum(+l.usage_actual))+'</td></tr>';
+    const order={bocor:0,lebih:1,normal:2,kalibrasi:3};
+    const det=[...ls].sort((a,b)=>order[lineStatus(a)]-order[lineStatus(b)]||a.ingredient.localeCompare(b.ingredient)).map(l=>{
+      const s=lineStatus(l),fix=r.is_latest?' <button class="btn-ghost" style="padding:4px 8px;font-size:10px;" data-c="'+esc(r.id)+'" data-i="'+esc(l.ingredient)+'" data-u="'+esc(l.unit||'')+'" data-v="'+esc(l.physical_qty)+'" onclick="fixLine(this.dataset)">koreksi</button>':'';
+      const u=esc(l.unit||''),pct=l.leak_pct!=null?+l.leak_pct:(+l.variance_pct||0)*(+l.variance_qty<0?-1:1);
+      const col=s==='bocor'?'var(--danger)':s==='lebih'?'var(--warn)':'inherit';
+      return '<tr style="'+(LINE_ST[s].bg?'background:'+LINE_ST[s].bg+';':'')+'"><td style="padding:8px 0;">'+esc(l.ingredient)+fix+(l.reason?'<div class="item-unit">'+esc(l.reason)+'</div>':'')+'</td>'+
+        '<td>'+fmtNum(Math.round(+l.system_qty*10)/10)+' '+u+'</td>'+
+        '<td><strong>'+fmtNum(Math.round(+l.physical_qty*10)/10)+'</strong> '+u+'</td>'+
+        '<td style="color:'+col+';">'+(+l.variance_qty>0?'+':'')+fmtNum(Math.round(+l.variance_qty*10)/10)+' '+u+'</td>'+
+        '<td style="color:'+col+';font-weight:'+(s==='bocor'||s==='lebih'?700:400)+';">'+(s==='kalibrasi'||+l.system_qty<=0&&s!=='normal'?'—':(pct>0?'+':'')+(Math.round(pct*10)/10).toLocaleString('id-ID')+'%')+'</td>'+
+        '<td style="color:'+col+';">'+(s==='kalibrasi'?'—':fmtRp(+l.variance_rp))+'</td>'+
+        '<td>'+linePill(l)+(s==='bocor'||s==='lebih'?'<div class="item-unit" style="margin-top:4px;">'+LINE_KET[s]+'</div>':'')+'</td></tr>';
     }).join('');
-    return main+'<tr><td colspan="4" style="padding:0 0 12px;"><details><summary style="cursor:pointer;font-size:12px;color:var(--mist);">'+ls.length+' bahan · <span style="color:'+(f.length?'var(--danger)':'var(--green)')+';">'+f.length+' merah (selisih &gt;5%)</span></summary>'+
-      '<table class="data-table" style="margin-top:8px;font-size:12px;"><thead><tr><th>Bahan</th><th>Sistem</th><th>Fisik</th><th>Selisih</th><th>Rp</th><th>Pakai (resep)</th><th>Pakai (aktual)</th></tr></thead><tbody>'+det+'</tbody></table></details></td></tr>';
+    const sumTxt=allKal?'<span style="color:var(--mist);">titik nol, tidak dihitung</span>'
+      :'<span style="color:'+(t.nBocor?'var(--danger)':'var(--green)')+';">'+t.nBocor+' bocor</span>'+(t.nLebih?' · <span style="color:var(--warn);">'+t.nLebih+' perlu dicek</span>':'')+(t.nKal?' · '+t.nKal+' kalibrasi':'');
+    return main+'<tr><td colspan="4" style="padding:0 0 12px;"><details'+(t.nBocor||t.nLebih?' open':'')+'><summary style="cursor:pointer;font-size:12px;color:var(--mist);">'+ls.length+' bahan · '+sumTxt+'</summary>'+
+      '<table class="data-table" style="margin-top:8px;font-size:12px;"><thead><tr><th>Bahan</th><th>Stok sistem</th><th>Stok fisik</th><th>Selisih</th><th>Selisih %</th><th>Nilai selisih</th><th>Status</th></tr></thead><tbody>'+det+'</tbody></table></details></td></tr>';
   }).join('');
   el.innerHTML='<div class="stat-strip">'+
-    '<div class="stat-cell"><div class="stat-label">Total selisih</div><div class="stat-value '+(total>0?'danger':'green')+'" style="font-size:22px;">'+fmtRp(total)+'</div><div class="stat-note">positif = bahan kurang/hilang</div></div>'+
-    '<div class="stat-cell"><div class="stat-label">Cek tersimpan</div><div class="stat-value">'+done.length+'</div></div>'+
-    '<div class="stat-cell"><div class="stat-label">Cek terlewat</div><div class="stat-value '+(missed?'danger':'green')+'">'+missed+'</div></div>'+
-    '<div class="stat-cell"><div class="stat-label">Bahan merah</div><div class="stat-value '+(red?'warn':'green')+'">'+red+'</div><div class="stat-note">selisih di atas 5%</div></div></div>'+
-    (rows?'<table class="data-table"><thead><tr><th>Cek</th><th>Penanggung jawab</th><th>Status</th><th>Nilai selisih</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    '<div class="stat-cell"><div class="stat-label">Kebocoran</div><div class="stat-value '+(T.bocor>0?'danger':'green')+'" style="font-size:22px;">'+fmtRp(T.bocor)+'</div><div class="stat-note">'+T.nBocor+' bahan kurang &gt; '+tol+'% dari stok sistem</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Dalam batas '+tol+'%</div><div class="stat-value" style="font-size:22px;">'+fmtRp(T.normal)+'</div><div class="stat-note">wajar, sudah masuk loss &amp; break HPP</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Perlu dicek</div><div class="stat-value '+(T.nLebih?'warn':'green')+'" style="font-size:22px;">'+fmtRp(T.lebih)+'</div><div class="stat-note">'+T.nLebih+' bahan fisik lebih banyak · restock tidak dicatat?</div></div>'+
+    '<div class="stat-cell"><div class="stat-label">Cek</div><div class="stat-value">'+done.length+'<span style="font-size:15px;color:'+(missed?'var(--danger)':'var(--mist)')+';"> · '+missed+' terlewat</span></div><div class="stat-note">'+(T.nKal?T.nKal+' bahan kalibrasi (titik nol)':'tersimpan · terlewat')+'</div></div></div>'+
+    (rows?'<table class="data-table"><thead><tr><th>Cek</th><th>Penanggung jawab</th><th>Status</th><th>Kebocoran</th></tr></thead><tbody>'+rows+'</tbody></table>'
       :'<div class="empty-state"><div class="empty-title">Belum ada cek stok di periode ini</div></div>')+
-    '<div style="font-size:11px;color:var(--mist);margin-top:12px;">Penanggung jawab: Buka Pagi & Pergantian = barista shift 1, Closing = barista shift 2. Tombol koreksi hanya muncul di cek terakhir, karena cek setelahnya memakai angka itu sebagai dasar.</div>';
+    '<div style="font-size:11px;color:var(--mist);margin-top:12px;line-height:1.7;">'+
+    '<b>Selisih</b> = stok sistem − stok fisik, <b>Selisih %</b> = selisih ÷ stok sistem. <b>Bocor</b> = fisik kurang lebih dari '+tol+'% (batas = Lost n break di Pengaturan HPP), toleransi timbangan ±2 gr/ml. '+
+    '<b>Perlu dicek</b> = fisik lebih banyak dari sistem: biasanya restock tidak dicatat, ada stok racikan lama, atau takaran resep kebesaran. '+
+    '<b>Kalibrasi</b> = timbangan pertama bahan itu, jadi titik nol dan tidak dihitung.<br>'+
+    'Penanggung jawab: Buka Pagi & Pergantian = barista shift 1, Closing = barista shift 2. Tombol koreksi hanya muncul di cek terakhir.</div>';
 }
 async function fixLine(d){
   const v=prompt('Angka fisik yang benar untuk '+d.i+' ('+d.u+'). Sekarang tercatat '+d.v+'.',d.v);
@@ -1283,38 +1322,80 @@ function exportSelisih(){
   if(!range||!rs.length)return toast('Tidak ada data di periode ini','wrn');
   if(typeof XLSX==='undefined')return toast('Gagal memuat modul xlsx','err');
   const bar=document.getElementById('sl-bar').value;
+  const tol=selTol(rs);
   const st={ok:'Tersimpan',terlewat:'TERLEWAT'};
+  const T=sumLines(rs);
   const info=[['Laporan Selisih Stok · Nirmala Coffee'],['Periode',fmtTgl(range.from)+(range.to!==range.from?' – '+fmtTgl(range.to):'')+(range.capped?' (s/d hari ini)':'')],
-    ['Jenis',range.desc],['Barista',bar||'Semua barista'],['Dibuat',today()],[]];
-  const s1=[...info,['Tanggal','Shift','Cek','Status','Jam submit','Penanggung jawab','Barista shift 1','Barista shift 2','Bahan merah','Total selisih (Rp)']];
-  const s2=[['Tanggal','Shift','Cek','Penanggung jawab','Bahan','Satuan','Stok sistem','Stok fisik','Selisih','Selisih %','Merah','Harga/satuan','Nilai selisih (Rp)','Pemakaian resep','Pemakaian aktual','Restock masuk','Botol segel','Berat kotor (gr)','Catatan']];
+    ['Jenis',range.desc],['Barista',bar||'Semua barista'],['Dibuat',today()],[],
+    ['KEBOCORAN',T.bocor,T.nBocor+' bahan: fisik kurang > '+tol+'% dari stok sistem'],
+    ['Dalam batas '+tol+'%',T.normal,'wajar, sudah masuk loss & break HPP'],
+    ['Perlu dicek',T.lebih,T.nLebih+' bahan: fisik lebih banyak > '+tol+'% (restock tidak dicatat?)'],
+    ['Kalibrasi',T.nKal+' bahan','titik nol, tidak dihitung'],[],
+    ['KETERANGAN WARNA'],
+    ['MERAH · Bocor','Fisik kurang dari sistem (nuang berlebih)','Selisih % di atas '+tol+'% dari stok sistem. Cek takaran barista, bahan tumpah/terbuang, atau menu yang tidak diinput di kasir.'],
+    ['KUNING · Perlu dicek','Fisik lebih banyak dari sistem (indikasi restock)','Selisih % di atas '+tol+'%. Biasanya barang masuk tidak dicatat di tab Restock, atau takaran resep lebih besar dari yang dituang.'],
+    ['ABU-ABU · Kalibrasi','Timbangan pertama bahan (titik nol)','Tidak dihitung dan tidak dibebankan ke barista.'],[]];
+  const H1=info.length;
+  const s1=[...info,['Tanggal','Shift','Cek','Status','Jam submit','Penanggung jawab','Barista shift 1','Barista shift 2','Bahan bocor','Kebocoran','Bahan perlu dicek','Perlu dicek']];
+  // urutan kolom sama dengan laporan lama; kolom "Merah" diganti "Status"
+  const s2=[['Tanggal','Shift','Cek','Penanggung jawab','Bahan','Satuan','Stok sistem','Stok fisik','Selisih','Selisih %','Status','Keterangan','Harga/satuan','Nilai selisih','Pemakaian resep','Pemakaian aktual','Restock masuk','Botol segel','Berat kotor (gr)','Catatan']];
+  const s2st=[];
   const byIng={},byBar={};
   rs.forEach(r=>{
     const who=respName(r)||'(tidak ada data clock in)';
-    const ls=r.lines||[];
-    s1.push([r.work_date,r.shift,r.label,st[r.status],r.submitted_at||'',who,r.shift1||'',r.shift2||'',ls.filter(l=>l.flagged).length,r.status==='ok'?+r.total_variance_rp:'']);
-    const b=byBar[who]||(byBar[who]={cek:0,miss:0,rp:0,red:0});
-    if(r.status==='ok'){b.cek++;b.rp+=+r.total_variance_rp||0;b.red+=ls.filter(l=>l.flagged).length;}else b.miss++;
-    ls.forEach(l=>{
-      s2.push([r.work_date,r.shift,r.label,who,l.ingredient,l.unit,+l.system_qty,+l.physical_qty,+l.variance_qty,+l.variance_pct,l.flagged?'YA':'',+l.unit_price,+l.variance_rp,
-        l.usage_theoretical==null?'':+l.usage_theoretical,l.usage_actual==null?'':+l.usage_actual,+l.restock_in||0,
+    const ls=r.lines||[],t=sumLines([r]);
+    s1.push([r.work_date,r.shift,r.label,st[r.status],r.submitted_at||'',who,r.shift1||'',r.shift2||'',r.status==='ok'?t.nBocor:'',r.status==='ok'?t.bocor:'',r.status==='ok'?t.nLebih:'',r.status==='ok'?t.lebih:'']);
+    const b=byBar[who]||(byBar[who]={cek:0,miss:0,nb:0,rp:0,nl:0,rpl:0});
+    if(r.status==='ok'){b.cek++;b.nb+=t.nBocor;b.rp+=t.bocor;b.nl+=t.nLebih;b.rpl+=t.lebih;}else b.miss++;
+    const order={bocor:0,lebih:1,normal:2,kalibrasi:3};
+    [...ls].sort((a,b)=>order[lineStatus(a)]-order[lineStatus(b)]||a.ingredient.localeCompare(b.ingredient)).forEach(l=>{
+      const s=lineStatus(l),sys=+l.system_qty,pct=l.leak_pct!=null?+l.leak_pct:(sys>0?+((sys-l.physical_qty)/sys*100).toFixed(2):'');
+      s2.push([r.work_date,r.shift,r.label,who,l.ingredient,l.unit,+sys.toFixed(2),+(+l.physical_qty).toFixed(2),+(+l.variance_qty).toFixed(2),
+        s==='kalibrasi'?'':pct,LINE_ST[s].label.toUpperCase(),s==='normal'?'':LINE_KET[s].replace('batas wajar','batas '+tol+'%'),+l.unit_price,s==='kalibrasi'?'':+l.variance_rp,
+        l.usage_theoretical==null?'':+(+l.usage_theoretical).toFixed(2),l.usage_actual==null?'':+(+l.usage_actual).toFixed(2),+l.restock_in||0,
         l.sealed_count==null?'':+l.sealed_count,l.gross_weight==null?'':+l.gross_weight,l.reason||'']);
-      const g=byIng[l.ingredient]||(byIng[l.ingredient]={unit:l.unit,theo:0,act:0,rp:0});
-      g.theo+=+(l.usage_theoretical||0);g.act+=+(l.usage_actual||0);g.rp+=+l.variance_rp||0;
+      s2st.push(s);
+      if(s==='kalibrasi')return;
+      const g=byIng[l.ingredient]||(byIng[l.ingredient]={unit:l.unit,sys:0,var:0,rp:0,nb:0,nl:0});
+      g.var+=+l.variance_qty||0;g.rp+=+l.variance_rp||0;if(s==='bocor')g.nb++;if(s==='lebih')g.nl++;
     });
   });
-  const total=rs.reduce((s,r)=>s+(r.status==='ok'?(+r.total_variance_rp||0):0),0);
-  s1.push([],['','','','','','','','','TOTAL',total]);
-  const s3=[['Bahan','Satuan','Pemakaian resep','Pemakaian aktual','Selisih pemakaian','Total selisih (Rp)']];
-  Object.entries(byIng).forEach(([k,v])=>s3.push([k,v.unit,+v.theo.toFixed(2),+v.act.toFixed(2),+(v.act-v.theo).toFixed(2),v.rp]));
-  const s4=[['Penanggung jawab','Cek tersimpan','Cek terlewat','Bahan merah','Total selisih (Rp)']];
-  Object.entries(byBar).sort((a,b)=>b[1].rp-a[1].rp).forEach(([k,v])=>s4.push([k,v.cek,v.miss,v.red,v.rp]));
+  s1.push([],['','','','','','','','','TOTAL',T.bocor,'',T.lebih]);
+  const s3=[['Bahan','Satuan','Total selisih','Kali bocor','Kali perlu dicek','Nilai selisih']];
+  const s3st=[];
+  Object.entries(byIng).sort((a,b)=>b[1].rp-a[1].rp).forEach(([k,v])=>{
+    s3.push([k,v.unit,+v.var.toFixed(2),v.nb,v.nl,v.rp]);s3st.push(v.nb?'bocor':v.nl?'lebih':'normal');
+  });
+  const s4=[['Penanggung jawab','Cek tersimpan','Cek terlewat','Bahan bocor','Kebocoran','Bahan perlu dicek','Perlu dicek']];
+  Object.entries(byBar).sort((a,b)=>b[1].rp-a[1].rp).forEach(([k,v])=>s4.push([k,v.cek,v.miss,v.nb,v.rp,v.nl,v.rpl]));
+
+  // ── format & warna (xlsx-js-style). Rupiah tetap angka, jadi masih bisa dijumlah/difilter.
+  const RP='"Rp"#,##0;-"Rp"#,##0',RP2='"Rp"#,##0.00',PCT='0.00"%";-0.00"%"',NUM='#,##0.##';
+  const HEAD={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{patternType:'solid',fgColor:{rgb:'2F3B32'}}};
+  const look=c=>c?{fill:{patternType:'solid',fgColor:{rgb:c.fill}},font:{color:{rgb:c.font},bold:true}}:{};
+  const cell=(ws,r,c)=>{const a=XLSX.utils.encode_cell({r,c});if(!ws[a])ws[a]={t:'s',v:''};return ws[a];};
+  const paint=(ws,r,ncol,base)=>{for(let c=0;c<ncol;c++){const x=cell(ws,r,c);x.s=Object.assign({},x.s||{},base);}};
+  const fmt=(ws,r,cols,z)=>cols.forEach(c=>{const x=cell(ws,r,c);if(typeof x.v==='number'){x.z=z;x.s=Object.assign({},x.s||{},{numFmt:z});}});
   const wb=XLSX.utils.book_new();
-  const add=(name,aoa,w)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=w.map(x=>({wch:x}));XLSX.utils.book_append_sheet(wb,ws,name);};
-  add('Ringkasan Cek',s1,[12,7,17,11,10,20,16,16,11,16]);
-  add('Detail Bahan',s2,[12,7,17,20,16,7,11,11,10,9,7,11,15,14,14,12,10,13,30]);
-  add('Per Bahan',s3,[18,8,15,15,16,16]);
-  add('Per Barista',s4,[22,14,13,12,16]);
+  const add=(name,aoa,w,fn)=>{const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=w.map(x=>({wch:x}));if(fn)fn(ws);XLSX.utils.book_append_sheet(wb,ws,name);};
+  add('Ringkasan Cek',s1,[22,44,18,12,10,22,16,16,11,14,16,14],ws=>{
+    paint(ws,0,3,{font:{bold:true,sz:14}});
+    paint(ws,6,3,T.bocor>0?look(LINE_ST.bocor.xl):{font:{bold:true}});
+    paint(ws,8,3,T.nLebih?look(LINE_ST.lebih.xl):{});
+    paint(ws,11,1,{font:{bold:true}});paint(ws,12,3,look(LINE_ST.bocor.xl));paint(ws,13,3,look(LINE_ST.lebih.xl));paint(ws,14,3,look(LINE_ST.kalibrasi.xl));
+    [6,7,8].forEach(r=>fmt(ws,r,[1],RP));
+    paint(ws,H1,12,HEAD);
+    rs.forEach((r,i)=>{const t=sumLines([r]),row=H1+1+i;
+      paint(ws,row,12,r.status==='terlewat'||t.nBocor?look(LINE_ST.bocor.xl):t.nLebih?look(LINE_ST.lebih.xl):{});fmt(ws,row,[9,11],RP);});
+    fmt(ws,s1.length-1,[9,11],RP);paint(ws,s1.length-1,12,{font:{bold:true}});fmt(ws,s1.length-1,[9,11],RP);
+  });
+  add('Detail Bahan',s2,[12,7,17,20,18,7,12,12,11,11,13,52,13,15,15,15,13,11,15,32],ws=>{
+    paint(ws,0,20,HEAD);
+    s2st.forEach((s,i)=>{const r=i+1;paint(ws,r,20,look(LINE_ST[s].xl));fmt(ws,r,[6,7,8,14,15,16],NUM);fmt(ws,r,[9],PCT);fmt(ws,r,[12],RP2);fmt(ws,r,[13],RP);});
+    ws['!autofilter']={ref:'A1:T'+s2.length};
+  });
+  add('Per Bahan',s3,[18,8,14,11,15,15],ws=>{paint(ws,0,6,HEAD);s3st.forEach((s,i)=>{paint(ws,i+1,6,look(LINE_ST[s].xl));fmt(ws,i+1,[2],NUM);fmt(ws,i+1,[5],RP);});});
+  add('Per Barista',s4,[24,14,13,12,15,16,15],ws=>{paint(ws,0,7,HEAD);s4.slice(1).forEach((x,i)=>{paint(ws,i+1,7,x[3]?look(LINE_ST.bocor.xl):x[5]?look(LINE_ST.lebih.xl):{});fmt(ws,i+1,[4,6],RP);});});
   const slug=bar?'-'+bar.toLowerCase().replace(/[^\w]+/g,'-'):'';
   XLSX.writeFile(wb,'nirmala-selisih-'+range.label+slug+'.xlsx');
   toast('Excel berhasil diexport','ok');
