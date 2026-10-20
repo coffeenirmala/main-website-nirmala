@@ -546,7 +546,7 @@ async function submitRestock(name,unit){
   try{
     await saveStock(name,newStock);
     await addRestock({date:today(),ts:Date.now(),item:name,unit,qty,price,note});
-    checkInventoryROP();
+    if(ROP_EMAIL_ENABLED)releaseRopLocks(); // restock tidak pernah mengirim email
     const priceStr=price>0?fmtRp(price):'';
     toast('+ '+qty+' '+unit+' '+name+(priceStr?' · '+priceStr:''),'ok');
     closeModal();render();
@@ -1137,7 +1137,7 @@ async function submitCek(){
   if(error){toast('Gagal: '+error.message,'err');btn.disabled=false;btn.textContent='Simpan Cek '+s.label;return;}
   toast('Cek '+data.label+' tersimpan. Terima kasih!','ok');
   await loadAllData();
-  checkInventoryROP();
+  checkInventoryROP({label:data.label,barista:s.check_type==='close'?s.shift2:s.shift1});
   loadCek();
 }
 
@@ -1834,284 +1834,110 @@ async function releaseLock(itemName) {
 }
 
 
-/**
- * Generate HTML body email yang profesional dan informatif.
- * @param {string} itemName  - Nama bahan baku yang kritis
- * @param {number} stock     - Stok aktual saat ini
- * @param {string} unit      - Satuan (gr, ml, pcs, dll)
- * @param {number} rop       - Nilai Reorder Point bahan tersebut
- * @returns {string} HTML string untuk body email
+/* ══ EMAIL RINGKASAN STOK (1 email per cek stok) ══════════════════════════
+ * Dipanggil HANYA setelah barista menyimpan Cek Stok (Restock tidak mengirim email).
+ * - Email terkirim hanya jika ada bahan yang BARU turun ke ≤ ROP sejak email terakhir.
+ * - Isi: semua bahan kritis (≤ ROP, yang baru diberi tanda BARU) + bahan mendekati ROP (≤ 125% ROP),
+ *   lengkap dengan saran jumlah beli (sampai 2× ROP).
+ * - Penanda "sudah diberitahu" disimpan di tabel nc_rop_lock; dilepas otomatis saat stok di atas ROP lagi.
  */
-function buildEmailHtml(itemName, stock, unit, rop) {
-  const now = new Date().toLocaleString('id-ID', {
-    weekday: 'long', year: 'numeric', month: 'long',
-    day: 'numeric', hour: '2-digit', minute: '2-digit',
+function ropLists(){
+  const inv=getInv(),crit=[],warn=[],above=[];
+  INVENTORY_DEF.forEach(i=>{
+    const rop=+i.rop||0;if(!rop)return;
+    const stock=+(inv[i.name]??0);
+    const row={name:i.name,unit:i.unit,stock,rop,buy:Math.max(0,Math.ceil(rop*2-stock))};
+    if(stock<=rop)crit.push(row);else if(stock<=rop*1.25)warn.push(row);else above.push(row);
   });
-
-  // Hitung persentase stok terhadap ROP untuk visual progress bar
-  const pct = rop > 0 ? Math.min(100, Math.round((stock / rop) * 100)) : 0;
-
-  // Warna bar berdasarkan kondisi stok
-  const barColor = stock <= 0 ? '#991b1b' : stock < rop ? '#b85c00' : '#2a5c3f';
-  const statusText = stock <= 0 ? 'HABIS' : 'DI BAWAH ROP';
-  const statusBg   = stock <= 0 ? '#991b1b' : '#b85c00';
-
-  return `
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alert Inventaris — ${itemName}</title>
-</head>
-<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ee;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
-
-          <!-- Header -->
-          <tr>
-            <td style="background:#111110;padding:28px 36px;">
-              <p style="margin:0;color:rgba(255,255,255,0.45);font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;">
-                Nirmala Coffee · Sistem Inventaris
-              </p>
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">
-                🔴 Alert Stok Kritis
-              </h1>
-            </td>
-          </tr>
-
-          <!-- Status Badge -->
-          <tr>
-            <td style="padding:28px 36px 0;">
-              <table cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="background:${statusBg};border-radius:100px;padding:5px 14px;">
-                    <span style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">
-                      ● ${statusText}
-                    </span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Item Name -->
-          <tr>
-            <td style="padding:16px 36px 0;">
-              <h2 style="margin:0;font-size:32px;font-weight:900;color:#111110;letter-spacing:-0.5px;">
-                ${itemName}
-              </h2>
-              <p style="margin:6px 0 0;font-size:13px;color:#8a8a86;">
-                Stok bahan baku ini membutuhkan perhatian segera.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Data Box -->
-          <tr>
-            <td style="padding:24px 36px;">
-              <table width="100%" cellpadding="0" cellspacing="0"
-                     style="background:#f5f3ee;border-radius:12px;overflow:hidden;">
-                <tr>
-                  <!-- Stok Aktual -->
-                  <td width="50%" style="padding:20px 24px;border-right:1px solid #ddddd8;">
-                    <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:2px;
-                               text-transform:uppercase;color:#8a8a86;">
-                      Stok Saat Ini
-                    </p>
-                    <p style="margin:0;font-size:30px;font-weight:900;color:${barColor};
-                               letter-spacing:-0.5px;">
-                      ${stock % 1 === 0 ? stock : stock.toFixed(1)}
-                      <span style="font-size:14px;font-weight:400;color:#8a8a86;">
-                        &nbsp;${unit}
-                      </span>
-                    </p>
-                  </td>
-                  <!-- ROP -->
-                  <td width="50%" style="padding:20px 24px;">
-                    <p style="margin:0 0 6px;font-size:10px;font-weight:700;letter-spacing:2px;
-                               text-transform:uppercase;color:#8a8a86;">
-                      Reorder Point (ROP)
-                    </p>
-                    <p style="margin:0;font-size:30px;font-weight:900;color:#111110;
-                               letter-spacing:-0.5px;">
-                      ${rop}
-                      <span style="font-size:14px;font-weight:400;color:#8a8a86;">
-                        &nbsp;${unit}
-                      </span>
-                    </p>
-                  </td>
-                </tr>
-                <!-- Progress Bar -->
-                <tr>
-                  <td colspan="2" style="padding:0 24px 20px;">
-                    <p style="margin:0 0 6px;font-size:10px;font-weight:600;
-                               color:#8a8a86;letter-spacing:0.5px;">
-                      Level stok: ${pct}% dari ROP
-                    </p>
-                    <div style="background:#ddddd8;border-radius:12px;height:6px;overflow:hidden;">
-                      <div style="width:${pct}%;height:100%;background:${barColor};
-                                  border-radius:12px;"></div>
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Call to Action -->
-          <tr>
-            <td style="padding:0 36px 28px;">
-              <p style="margin:0;font-size:13px;color:#3a3a38;line-height:1.7;">
-                Segera lakukan pemesanan ulang bahan baku <strong>${itemName}</strong> kepada supplier.
-                Stok yang mencapai atau melewati ROP mengindikasikan risiko kehabisan bahan
-                sebelum pengiriman berikutnya tiba.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="background:#f5f3ee;padding:20px 36px;border-top:1px solid #ddddd8;">
-              <p style="margin:0;font-size:11px;color:#8a8a86;line-height:1.6;">
-                Email ini dikirim otomatis oleh sistem inventaris Nirmala Coffee
-                pada <strong>${now}</strong>.<br>
-                Notifikasi berikutnya untuk bahan ini hanya akan terkirim setelah
-                stok di-restock melewati batas ROP.
-              </p>
-            </td>
-          </tr>
-
-        </table>
+  crit.sort((a,b)=>a.stock/a.rop-b.stock/b.rop);warn.sort((a,b)=>a.stock/a.rop-b.stock/b.rop);
+  return {crit,warn,above};
+}
+// Setelah Restock: hanya melepas penanda untuk bahan yang sudah aman, tanpa email.
+async function releaseRopLocks(){
+  const {above}=ropLists();
+  for(const r of above)if(isLocked(r.name))await releaseLock(r.name);
+}
+const _escE=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const _numE=n=>(Math.round(n*10)/10).toLocaleString('id-ID');
+function buildDigestHtml(ctx,crit,warn,newSet){
+  const when=new Date().toLocaleString('id-ID',{timeZone:'Asia/Jakarta',weekday:'long',day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const row=(r,isCrit)=>{
+    const pct=Math.min(100,Math.round(r.stock/r.rop*100)),habis=r.stock<=0;
+    const col=habis?'#991b1b':isCrit?'#b85c00':'#9a7b00';
+    return `<tr>
+      <td style="padding:12px 0;border-bottom:1px solid #eeeae2;">
+        <div style="font-size:15px;font-weight:700;color:#111110;">${_escE(r.name)}${newSet.has(r.name)?' <span style="background:#991b1b;color:#fff;font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:100px;vertical-align:middle;">BARU</span>':''}${habis?' <span style="background:#111110;color:#fff;font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:100px;vertical-align:middle;">HABIS</span>':''}</div>
+        <div style="height:5px;background:#eeeae2;border-radius:3px;margin-top:8px;width:180px;"><div style="height:5px;width:${Math.max(3,pct)}%;background:${col};border-radius:3px;"></div></div>
       </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
-}
-
-
-// ── [5] FUNGSI PENGIRIMAN EMAIL ─────────────────────────────────────────────
-
-/**
- * Kirim email alert stok kritis ke semua penerima di ALERT_RECIPIENTS
- * menggunakan Brevo Transactional Email API (v3).
- *
- * Fungsi ini bersifat async dan tidak memblokir UI.
- * Error pengiriman dicatat di console dan toast, tapi tidak melempar exception.
- *
- * @param {string} itemName  - Nama bahan yang kritis
- * @param {number} stock     - Stok aktual saat ini
- * @param {string} unit      - Satuan (gr, ml, pcs, dll)
- * @param {number} rop       - Nilai Reorder Point
- */
-async function sendStockWarningEmail(itemName, stock, unit, rop) {
-  const subject = `[ALERT INVENTARIS] Stok ${itemName} Kritis — Segera Restock!`;
-  const htmlContent = buildEmailHtml(itemName, stock, unit, rop);
-
-  // Format "to" sesuai struktur Brevo API
-  const toList = ALERT_RECIPIENTS.map(r => ({ name: r.name, email: r.email }));
-
-  const payload = {
-    sender:      EMAIL_SENDER,
-    to:          toList,
-    subject:     subject,
-    htmlContent: htmlContent,
+      <td style="padding:12px 8px;border-bottom:1px solid #eeeae2;text-align:right;font-size:14px;font-weight:700;color:${col};white-space:nowrap;">${_numE(r.stock)} ${_escE(r.unit)}</td>
+      <td style="padding:12px 8px;border-bottom:1px solid #eeeae2;text-align:right;font-size:13px;color:#6b6b66;white-space:nowrap;">${_numE(r.rop)} ${_escE(r.unit)}</td>
+      <td style="padding:12px 0;border-bottom:1px solid #eeeae2;text-align:right;font-size:13px;font-weight:700;color:#111110;white-space:nowrap;">± ${_numE(r.buy)} ${_escE(r.unit)}</td>
+    </tr>`;
   };
-
-  try {
-    const response = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      // Jika API mengembalikan error, log detailnya
-      const errData = await response.json().catch(() => ({}));
-      console.error('[ROP Alert] Gagal kirim email. Status:', response.status, errData);
-      // Tampilkan toast error jika fungsi toast tersedia di scope global
-      if (typeof toast === 'function') {
-        toast(`Gagal kirim notifikasi email untuk ${itemName}`, 'err');
-      }
-      return false;
-    }
-
-    console.log(`[ROP Alert] ✓ Email terkirim ke ${toList.length} penerima untuk: ${itemName}`);
+  const table=(title,sub,list,isCrit,bg)=>!list.length?'':`
+    <tr><td style="padding:26px 36px 0;">
+      <div style="display:inline-block;background:${bg};color:#fff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:5px 14px;border-radius:100px;">${title} · ${list.length}</div>
+      <div style="font-size:12px;color:#6b6b66;margin-top:8px;">${sub}</div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;border-collapse:collapse;">
+        <tr>
+          <th align="left" style="font-size:10px;letter-spacing:1.5px;color:#9a9a94;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid #d8d4ca;">Bahan</th>
+          <th align="right" style="font-size:10px;letter-spacing:1.5px;color:#9a9a94;text-transform:uppercase;padding:0 8px 6px;border-bottom:1px solid #d8d4ca;">Stok</th>
+          <th align="right" style="font-size:10px;letter-spacing:1.5px;color:#9a9a94;text-transform:uppercase;padding:0 8px 6px;border-bottom:1px solid #d8d4ca;">ROP</th>
+          <th align="right" style="font-size:10px;letter-spacing:1.5px;color:#9a9a94;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid #d8d4ca;">Saran beli</th>
+        </tr>
+        ${list.map(r=>row(r,isCrit)).join('')}
+      </table>
+    </td></tr>`;
+  const link=location.origin+'/inventory-desk.html';
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Ringkasan Stok Nirmala</title></head>
+<body style="margin:0;padding:0;background:#f5f3ee;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ee;padding:32px 12px;"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+  <tr><td style="background:#111110;padding:26px 36px;">
+    <p style="margin:0 0 6px;color:rgba(255,255,255,.45);font-size:10px;letter-spacing:3px;text-transform:uppercase;">Nirmala Coffee · Sistem Inventaris</p>
+    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">Ringkasan Stok — ${crit.length} bahan perlu restock</h1>
+    <p style="margin:10px 0 0;color:rgba(255,255,255,.7);font-size:13px;">Cek ${_escE(ctx.label||'Stok')}${ctx.barista?' · '+_escE(ctx.barista):''} · ${when}</p>
+  </td></tr>
+  ${table('🔴 Harus restock','Stok sama atau di bawah ROP. Yang bertanda BARU baru turun sejak email sebelumnya.',crit,true,'#991b1b')}
+  ${table('🟡 Mendekati ROP','Stok ≤ 125% ROP — bisa dibeli sekalian.',warn,false,'#9a7b00')}
+  <tr><td style="padding:26px 36px 8px;">
+    <p style="margin:0;font-size:12px;color:#6b6b66;line-height:1.6;">Saran beli = jumlah agar stok kembali ke 2× ROP (perkiraan). Setelah barang datang, catat di tab <b>Restock</b> supaya bahan keluar dari daftar ini.</p>
+  </td></tr>
+  <tr><td style="padding:16px 36px 32px;">
+    <a href="${link}" style="display:inline-block;background:#111110;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:13px 24px;border-radius:100px;">Buka Inventory</a>
+  </td></tr>
+  <tr><td style="background:#f5f3ee;padding:16px 36px;font-size:11px;color:#9a9a94;">Email otomatis dari Nirmala Inventory. Dikirim maksimal 1× per cek stok, hanya jika ada bahan yang baru menyentuh ROP.</td></tr>
+</table></td></tr></table></body></html>`;
+}
+// Dipanggil setelah Cek Stok tersimpan. ctx = {label, barista}
+// Email stok/ROP DIMATIKAN atas permintaan owner (20 Okt 2026). Ubah ke true untuk menyalakan lagi.
+const ROP_EMAIL_ENABLED=false;
+async function checkInventoryROP(ctx){
+  if(!ROP_EMAIL_ENABLED)return;
+  if(typeof INVENTORY_DEF==='undefined')return;
+  ctx=ctx||{};
+  const {crit,warn,above}=ropLists();
+  for(const r of above)if(isLocked(r.name))await releaseLock(r.name);   // sudah aman → boleh diingatkan lagi nanti
+  const fresh=crit.filter(r=>!isLocked(r.name));
+  if(!fresh.length)return;                                                // tidak ada yang baru → tidak kirim email
+  const newSet=new Set(fresh.map(r=>r.name));
+  const subject=`[STOK NIRMALA] ${crit.length} bahan perlu restock`+(warn.length?` · ${warn.length} mendekati ROP`:'')+(ctx.label?` — Cek ${ctx.label}`:'');
+  const ok=await sendDigestEmail(subject,buildDigestHtml(ctx,crit,warn,newSet));
+  if(ok){
+    for(const r of fresh)await activateLock(r.name);
+    if(typeof toast==='function')toast('Email ringkasan stok terkirim ('+crit.length+' bahan)','wrn');
+  }
+}
+async function sendDigestEmail(subject,htmlContent){
+  try{
+    const res=await fetch('/api/send-email',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sender:EMAIL_SENDER,to:ALERT_RECIPIENTS.map(r=>({name:r.name,email:r.email})),subject,htmlContent})});
+    if(!res.ok){console.error('[ROP Alert] Gagal kirim email',res.status,await res.json().catch(()=>({})));
+      if(typeof toast==='function')toast('Gagal kirim email ringkasan stok','err');return false;}
     return true;
-
-  } catch (networkError) {
-    // Network error (offline, CORS, dll)
-    console.error('[ROP Alert] Network error saat kirim email:', networkError);
-    return false;
-  }
+  }catch(e){console.error('[ROP Alert] Network error',e);return false;}
 }
 
-
-// ── [6] FUNGSI UTAMA: PENGECEKAN ROP + TRIGGER EMAIL ───────────────────────
-
-/**
- * Periksa semua item inventaris terhadap nilai ROP masing-masing.
- * Jika stok <= ROP DAN belum pernah dinotifikasi (lock belum aktif),
- * kirim email alert dan aktifkan lock.
- *
- * Fungsi ini juga secara otomatis mereset lock untuk item yang
- * stoknya sudah kembali di atas ROP (hasil restock).
- *
- * ═══════════════════════════════════════════════════════════
- *  Dipanggil setelah submitRestock() dan setelah Cek Stok tersimpan.
- *  ROP tiap bahan dibaca dari nc_ingredient.rop (Pengaturan Bahan).
- * ═══════════════════════════════════════════════════════════
- */
-function checkInventoryROP() {
-  const inv = getInv();
-
-  // INVENTORY_DEF harus tersedia di scope global (sudah ada di index.html)
-  if (typeof INVENTORY_DEF === 'undefined') {
-    console.warn('[ROP Alert] INVENTORY_DEF tidak ditemukan. Pastikan file ini dimuat setelah index.html.');
-    return;
-  }
-
-  INVENTORY_DEF.forEach(item => {
-    const stock = inv[item.name] ?? 0;
-    const rop   = item.rop;
-
-    // Lewati item yang tidak memiliki nilai ROP numerik
-    if (!rop || typeof rop !== 'number') return;
-
-    if (stock <= rop) {
-      // ── Stok di bawah atau sama dengan ROP ──
-
-      if (!isLocked(item.name)) {
-        // Lock belum aktif → ini PERTAMA KALI stok menyentuh ROP
-        // Kirim email (non-blocking, async) lalu segera aktifkan lock
-        sendStockWarningEmail(item.name, stock, item.unit, rop)
-          .then(success => {
-            if (success) {
-              // Aktifkan lock HANYA jika email berhasil terkirim
-              activateLock(item.name);
-              console.log(`[ROP Alert] Lock diaktifkan untuk: ${item.name}`);
-              if (typeof toast === 'function') {
-                toast(`⚠ Alert email terkirim: ${item.name} kritis!`, 'wrn');
-              }
-            }
-            // Jika gagal: lock TIDAK diaktifkan → sistem akan coba lagi
-            // pada transaksi berikutnya (behavior yang diharapkan)
-          });
-      }
-      // Jika sudah locked → abaikan, email tidak dikirim ulang
-
-    } else {
-      // ── Stok sudah di atas ROP (hasil restock) ──
-      // Reset lock agar alert bisa terkirim lagi jika stok turun kembali
-      releaseLock(item.name);
-    }
-  });
-}
 
 </script>
 </body>
