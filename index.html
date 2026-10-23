@@ -755,7 +755,7 @@
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
   const alreadySubmitted = submittedAt && (Date.now() - parseInt(submittedAt)) < sevenDaysMs;
   if (!alreadySubmitted) {
-    setTimeout(openPopup, 3000);
+    setTimeout(openPopup, 7000);
   }
 
   const brevoFormEl = window.document.getElementById('brevoForm');
